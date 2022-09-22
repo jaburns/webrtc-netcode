@@ -1,9 +1,3 @@
-export interface Connection {
-    send: (bytes: ArrayBuffer) => void
-    recv: () => ArrayBuffer[]
-    close: () => void
-}
-
 export const textEncoder = new TextEncoder()
 export const textDecoder = new TextDecoder('utf-8')
 
@@ -17,9 +11,22 @@ export const TICK_MILLIS = 1000 / 60
 export const TICKS_PER_SERVER_UPDATE = 2
 
 export const lerpAngle = (a: number, b: number, t: number): number => {
-    let delta = b - a;
-    let lerp = delta > Math.PI ? delta - 2*Math.PI
-        : delta < -Math.PI ? delta + 2*Math.PI
-        : delta
+    const delta = b - a
+    const lerp = delta > Math.PI
+        ? delta - 2 * Math.PI
+        : delta < -Math.PI
+            ? delta + 2 * Math.PI
+            : delta
     return a + lerp * t
+}
+
+export type DebugInfoSet = Record<string, string | number | boolean>
+export type DebugInfoFn = (k: string, v: string | number | boolean) => void
+
+let debugInfoFn: DebugInfoFn
+export const setGlobalDebugInfoFn = (fn: DebugInfoFn): void => {
+    debugInfoFn = fn
+}
+export const trace = (k: string, v: string | number | boolean): void => {
+    debugInfoFn(k, v)
 }

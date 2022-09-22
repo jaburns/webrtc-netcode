@@ -1,8 +1,8 @@
 import { createRequire } from 'node:module'
 import express from 'express'
 import fs from 'fs'
-import { createConnection } from './connection.js'
-import { Connection, TICK_MILLIS } from '../shared/utils.js'
+import { ServerConnection, createConnection } from './connection.js'
+import { trace, DebugInfoSet, setGlobalDebugInfoFn, TICK_MILLIS } from '../shared/utils.js'
 import { GameState, newGameState, newPlayerState, serializeGameState, tickPlayer } from '../shared/state.js'
 import { deserializeInputsPacket, InputsUnit, newInputsUnit } from '../shared/inputs.js'
 const oldRequire = createRequire(import.meta.url)
@@ -12,7 +12,7 @@ const ws = oldRequire('ws')
 
 const app = express()
 const wsServer = new ws.Server({ noServer: true })
-const connections: Record<string, Connection> = {}
+const connections: Record<string, ServerConnection> = {}
 
 app.use((_req, res, next) => {
     res.setHeader('cache-control', 'no-store')
@@ -27,7 +27,7 @@ app.get('/', (_req, res) => {
 
 wsServer.on('connection', async (socket: any) => {
     const conn = await createConnection(socket)
-    const id = Math.random().toString(36).substring(2)
+    const id = Math.random().toString(36).substring(2, 6)
     socket.on('close', () => {
         connections[id].close()
         delete connections[id]
@@ -45,12 +45,33 @@ app.listen(8080, () => {
     })
 })
 
+let accDebugInfos: DebugInfoSet = {}
+setGlobalDebugInfoFn((k, v) => {
+    accDebugInfos[k] = v
+})
+setInterval(() => {
+    for (const id in connections) {
+        connections[id].sendDebugInfo(accDebugInfos)
+    }
+    accDebugInfos = {}
+}, 100)
+
 // ----- game loop -------------------------------------------------------------
+
+interface PlayerConnection {
+    inputsBuffer: InputsUnit[],
+    currentInputs: InputsUnit,
+}
+
+const newPlayerConnection = (): PlayerConnection => ({
+    inputsBuffer: [],
+    currentInputs: newInputsUnit(),
+})
 
 let tickAccMillis = 0
 let lastNow = Date.now()
 const state = newGameState()
-const currentInputs: Record<string, InputsUnit> = {}
+const playerConns: Record<string, PlayerConnection> = {}
 
 setInterval(() => {
     const newNow = Date.now()
@@ -67,18 +88,18 @@ const tick = (): void => {
     for (const id in connections) {
         if (!(id in state.players)) {
             state.players[id] = newPlayerState()
-            currentInputs[id] = newInputsUnit()
+            playerConns[id] = newPlayerConnection()
         }
 
-        const recv = connections[id].recv()
-        if (recv.length > 0) {
-            currentInputs[id] = deserializeInputsPacket(recv.pop()!).unit
-        }
+        playerConns[id].inputsBuffer.push(
+            ...connections[id].recv().map(x => deserializeInputsPacket(x).unit),
+        )
     }
 
     for (const id in state.players) {
         if (!(id in connections)) {
             delete state.players[id]
+            delete playerConns[id]
         }
     }
 
@@ -92,6 +113,11 @@ const tick = (): void => {
 
 const tickState = (state: GameState): void => {
     for (const id in state.players) {
-        tickPlayer(state.players[id], currentInputs[id])
+        trace(`Inputs buffer size (${id})`, playerConns[id].inputsBuffer.length)
+
+        if (playerConns[id].inputsBuffer.length > 0) {
+            playerConns[id].currentInputs = playerConns[id].inputsBuffer.shift()!
+        }
+        tickPlayer(state.players[id], playerConns[id].currentInputs)
     }
 }

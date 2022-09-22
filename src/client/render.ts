@@ -1,13 +1,18 @@
 import { vec2 } from 'gl-matrix'
 import { GameState } from '../shared/state.js'
-import { lerpAngle, PLAYER_RADIUS } from '../shared/utils.js'
+import { DebugInfoSet, lerpAngle, PLAYER_RADIUS } from '../shared/utils.js'
 
 const vec2_0: vec2 = vec2.create()
 
 let ctx: CanvasRenderingContext2D
+let debugInfoDiv: HTMLDivElement
 
-export const renderInit = (canvasCtx: CanvasRenderingContext2D): void => {
+export const renderInit = (
+    canvasCtx: CanvasRenderingContext2D,
+    debugInfoDivElem: HTMLDivElement,
+): void => {
     ctx = canvasCtx
+    debugInfoDiv = debugInfoDivElem
 }
 
 export const renderGame = (state0: GameState, state1: GameState, lerp: number): void => {
@@ -33,4 +38,15 @@ export const renderGame = (state0: GameState, state1: GameState, lerp: number): 
         ctx.arc(pos[0] + dx, pos[1] + dy, 0.5 * PLAYER_RADIUS, 0, 2 * Math.PI)
         ctx.stroke()
     }
+}
+
+export const renderDebugInfos = (clientInfo: DebugInfoSet, serverInfo: DebugInfoSet): void => {
+    let html = ''
+    for (const k in clientInfo) {
+        html += `<p><b>[cli]</b> ${k} = ${clientInfo[k].toString()}</p>`
+    }
+    for (const k in serverInfo) {
+        html += `<p><b>[ser]</b> ${k} = ${serverInfo[k].toString()}</p>`
+    }
+    debugInfoDiv.innerHTML = html
 }

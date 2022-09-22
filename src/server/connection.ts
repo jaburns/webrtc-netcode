@@ -1,10 +1,17 @@
 import nodeDataChannel from 'node-datachannel'
-import { Connection } from '../shared/utils.js'
+import { DebugInfoSet } from '../shared/utils'
 const { initLogger, PeerConnection } = nodeDataChannel
 
 initLogger('Debug')
 
-export const createConnection = async (socket: any): Promise<Connection> => {
+export interface ServerConnection {
+    send: (bytes: ArrayBuffer) => void
+    sendDebugInfo: (info: DebugInfoSet) => void
+    recv: () => ArrayBuffer[]
+    close: () => void
+}
+
+export const createConnection = async (socket: any): Promise<ServerConnection> => {
     const peer = new PeerConnection('conn', {
         iceServers: ['stun:stun.l.google.com:19302'],
         iceTransportPolicy: 'all',
@@ -14,14 +21,14 @@ export const createConnection = async (socket: any): Promise<Connection> => {
         socket.send(JSON.stringify({ sdp, type }))
     })
 
-    let candidates: any[] | null = []
+    let candidates: string[] | null = []
 
     peer.onLocalCandidate((candidate, sdpMid) => {
         const json = JSON.stringify({ candidate, sdpMid })
         if (candidates !== null) {
-            candidates.push(json)
+            candidates.push('c' + json)
         } else {
-            socket.send(json)
+            socket.send('c' + json)
         }
     })
 
@@ -33,7 +40,7 @@ export const createConnection = async (socket: any): Promise<Connection> => {
     socket.addEventListener('message', (e: any) => {
         const desc = JSON.parse(e.data)
         peer.setRemoteDescription(desc.sdp, desc.type)
-        socket.send('D')
+        socket.send('d')
         for (const c of candidates!) {
             socket.send(c)
         }
@@ -42,10 +49,6 @@ export const createConnection = async (socket: any): Promise<Connection> => {
 
     await new Promise<void>(resolve => { dc.onOpen(resolve) })
 
-    const pingInterval = setInterval(() => {
-        socket.send('p')
-    }, 10000)
-
     let messages: ArrayBuffer[] = []
     dc.onMessage(msg => {
         messages.push((msg as Buffer).slice())
@@ -53,7 +56,11 @@ export const createConnection = async (socket: any): Promise<Connection> => {
 
     return {
         send (bytes) {
+            if (!dc.isOpen()) return
             dc.sendMessageBinary(Buffer.from(bytes))
+        },
+        sendDebugInfo (info) {
+            socket.send('i' + JSON.stringify(info))
         },
         recv () {
             const out = messages
@@ -63,7 +70,6 @@ export const createConnection = async (socket: any): Promise<Connection> => {
         close () {
             dc.close()
             peer.close()
-            clearInterval(pingInterval)
         },
     }
 }

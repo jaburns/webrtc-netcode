@@ -1,17 +1,24 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <title>netcode2</title>
-
 <style>
-html {
-    background-color: #221624;
-    color: #fff;
-}
-canvas {
-    background-color: #000;
-}
+    html {
+        background-color: #221624;
+        color: #fff;
+        font-family: monospace;
+    }
+    canvas {
+        background-color: #000;
+        float: left;
+    }
+    #info {
+        float: left;
+        padding-left: 10px;
+    }
+    #info p {
+        margin: 0;
+    }
 </style>
-
 <canvas id="maincanvas" width="1024" height="768"></canvas>
-
+<div id="info"></div>
 <script src="bundle.js"></script>
