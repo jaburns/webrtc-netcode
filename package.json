@@ -1,0 +1,59 @@
+{
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "~14.1.0",
+    "@types/body-parser": "~1.19.2",
+    "@types/express": "~4.17.13",
+    "@types/node": "~16.11.56",
+    "@typescript-eslint/eslint-plugin": "~4.20.0",
+    "body-parser": "~1.20.0",
+    "eslint": "~7.23.0",
+    "eslint-config-standard-with-typescript": "~20.0.0",
+    "eslint-plugin-import": "~2.22.1",
+    "eslint-plugin-promise": "~4.3.1",
+    "express": "~4.18.1",
+    "gl-matrix": "~3.4.3",
+    "node-datachannel": "~0.3.6",
+    "rollup": "~2.79.0",
+    "shelljs": "~0.8.5",
+    "typescript": "~4.2.3",
+    "ws": "~8.8.1"
+  },
+  "scripts": {
+    "start": "node build.js"
+  },
+  "eslintConfig": {
+    "extends": "standard-with-typescript",
+    "parserOptions": {
+      "project": "./tsconfig.json"
+    },
+    "rules": {
+      "@typescript-eslint/indent": [
+        "error",
+        4
+      ],
+      "@typescript-eslint/no-dynamic-delete": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/member-delimiter-style": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          "vars": "all",
+          "args": "none",
+          "varsIgnorePattern": "^_[0-9a-zA-Z_]*$"
+        }
+      ],
+      "@typescript-eslint/naming-convention": "off",
+      "indent": "off",
+      "no-empty": "off",
+      "no-unused-vars": "warn",
+      "no-unreachable": "warn",
+      "comma-dangle": [
+        "error",
+        "always-multiline"
+      ]
+    }
+  }
+}
