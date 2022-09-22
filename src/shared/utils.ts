@@ -15,3 +15,11 @@ export const PLAYER_RADIUS = 26
 export const TICKS_PER_SECOND = 60
 export const TICK_MILLIS = 1000 / 60
 export const TICKS_PER_SERVER_UPDATE = 2
+
+export const lerpAngle = (a: number, b: number, t: number): number => {
+    let delta = b - a;
+    let lerp = delta > Math.PI ? delta - 2*Math.PI
+        : delta < -Math.PI ? delta + 2*Math.PI
+        : delta
+    return a + lerp * t
+}

@@ -6,6 +6,7 @@ import { bindInputsListeners, consumeAccumulatedInputs } from './inputs.js'
 import { renderGame, renderInit } from './render.js'
 
 let connection: Connection
+let prevState: GameState = newGameState()
 let state: GameState = newGameState()
 let tickAccMillis = 0
 let lastNow = Date.now()
@@ -30,7 +31,7 @@ const frame = (): void => {
         tick()
     }
 
-    renderGame(state)
+    renderGame(prevState, state, tickAccMillis / TICK_MILLIS)
 }
 
 const tick = (): void => {
@@ -38,8 +39,10 @@ const tick = (): void => {
     connection.send(serializeInputsPacket({ unit: inputs }))
 
     const recv = connection.recv()
-    if (recv.length < 1) return
-    state = deserializeGameState(recv.pop()!)
+    if (recv.length > 0) {
+        prevState = state
+        state = deserializeGameState(recv.pop()!)
+    }
 }
 
 main()

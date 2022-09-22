@@ -1,6 +1,5 @@
 import { createRequire } from 'node:module'
 import express from 'express'
-import bodyParser from 'body-parser'
 import fs from 'fs'
 import { createConnection } from './connection.js'
 import { Connection, TICK_MILLIS } from '../shared/utils.js'
@@ -15,18 +14,10 @@ const app = express()
 const wsServer = new ws.Server({ noServer: true })
 const connections: Record<string, Connection> = {}
 
-app.disable('x-powered-by')
-
-app.set('etag', false)
-
 app.use((_req, res, next) => {
     res.setHeader('cache-control', 'no-store')
-    res.setHeader('cross-origin-embedder-policy', 'require-corp')
-    res.setHeader('cross-origin-opener-policy', 'same-origin')
     next()
 })
-
-app.use(bodyParser.json())
 
 app.use(express.static('client-build'))
 
@@ -36,10 +27,6 @@ app.get('/', (_req, res) => {
 
 wsServer.on('connection', async (socket: any) => {
     const conn = await createConnection(socket)
-
-    conn.send(Uint8Array.of(4, 5, 6, 7).buffer)
-    setTimeout(() => { console.log(conn.recv()) }, 1000)
-
     const id = Math.random().toString(36).substring(2)
     socket.on('close', () => {
         connections[id].close()
