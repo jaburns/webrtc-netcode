@@ -3,7 +3,7 @@ import express from 'express'
 import fs from 'fs'
 import { ServerConnection, createConnection } from './connection.js'
 import { trace, DebugInfoSet, setGlobalDebugInfoFn, TICK_MILLIS } from '../shared/utils.js'
-import { GameState, newGameState, newPlayerState, serializeGameState, tickPlayer } from '../shared/state.js'
+import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
 import { deserializeInputsPacket, InputsUnit, newInputsUnit } from '../shared/inputs.js'
 const oldRequire = createRequire(import.meta.url)
 const ws = oldRequire('ws')
@@ -54,18 +54,20 @@ setInterval(() => {
         connections[id].sendDebugInfo(accDebugInfos)
     }
     accDebugInfos = {}
-}, 100)
+}, 50)
 
 // ----- game loop -------------------------------------------------------------
 
 interface PlayerConnection {
     inputsBuffer: InputsUnit[],
     currentInputs: InputsUnit,
+    targetInputsBufferSize: number,
 }
 
 const newPlayerConnection = (): PlayerConnection => ({
     inputsBuffer: [],
     currentInputs: newInputsUnit(),
+    targetInputsBufferSize: 2,
 })
 
 let tickAccMillis = 0
@@ -94,6 +96,8 @@ const tick = (): void => {
         playerConns[id].inputsBuffer.push(
             ...connections[id].recv().map(x => deserializeInputsPacket(x).unit),
         )
+
+        trace(`Inputs buffer size (${id})`, playerConns[id].inputsBuffer.length)
     }
 
     for (const id in state.players) {
@@ -105,19 +109,24 @@ const tick = (): void => {
 
     tickState(state)
 
-    const statePacket = serializeGameState(state)
     for (const id in connections) {
-        connections[id].send(statePacket)
+        sendUpdateToPlayer(connections[id], playerConns[id])
     }
 }
 
 const tickState = (state: GameState): void => {
     for (const id in state.players) {
-        trace(`Inputs buffer size (${id})`, playerConns[id].inputsBuffer.length)
-
         if (playerConns[id].inputsBuffer.length > 0) {
             playerConns[id].currentInputs = playerConns[id].inputsBuffer.shift()!
         }
         tickPlayer(state.players[id], playerConns[id].currentInputs)
     }
+}
+
+const sendUpdateToPlayer = (udp: ServerConnection, conn: PlayerConnection): void => {
+    const packet: ServerStatePacket = {
+        state,
+        clientTimeDilation: Math.sign(conn.inputsBuffer.length - conn.targetInputsBufferSize + 1)
+    }
+    udp.send(serializeServerStatePacket(packet))
 }

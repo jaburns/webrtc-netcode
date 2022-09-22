@@ -53,10 +53,15 @@ export const tickPlayer = (self: PlayerState, inputs: InputsUnit): void => {
     }
 }
 
-export const serializeGameState = (state: GameState): ArrayBuffer => {
+export interface ServerStatePacket {
+    clientTimeDilation: number,
+    state: GameState,
+}
+
+export const serializeServerStatePacket = (state: ServerStatePacket): ArrayBuffer => {
     return textEncoder.encode(JSON.stringify(state)).buffer
 }
 
-export const deserializeGameState = (buffer: ArrayBuffer): GameState => {
+export const deserializeServerStatePacket = (buffer: ArrayBuffer): ServerStatePacket => {
     return JSON.parse(textDecoder.decode(buffer))
 }
