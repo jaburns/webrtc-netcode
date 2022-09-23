@@ -1,7 +1,7 @@
 import { ServerConnection } from './connection.js'
 import { TICK_MILLIS, TICKS_PER_SERVER_UPDATE, trace } from '../shared/utils.js'
 import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
-import { InputsReceiver } from '../shared/inputs.js'
+import { InputsReceiver } from './inputs.js'
 
 interface PlayerConnection {
     connection: ServerConnection,

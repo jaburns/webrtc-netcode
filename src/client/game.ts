@@ -1,8 +1,7 @@
-import { InputsSender } from '../shared/inputs.js'
 import { deserializeServerStatePacket, GameState, newGameState, PlayerState, tickPlayer } from '../shared/state.js'
 import { trace, TICK_MILLIS, clone, TICKS_PER_SERVER_UPDATE, log } from '../shared/utils.js'
 import { ClientConnection } from './connection.js'
-import { consumeAccumulatedInputs } from './inputs.js'
+import { consumeAccumulatedInputs, InputsSender } from './inputs.js'
 import { renderGame } from './render.js'
 
 let connection: ClientConnection
@@ -111,11 +110,10 @@ const receiveIncomingPackets = (): void => {
         const packet = deserializeServerStatePacket(bytes)
         serverStateBuffer.push(packet.state)
 
-        inputsSender.ackInputSeq(packet.ackedInputSeq)
-
         if (!seenFirstPacket) {
             seenFirstPacket = true
             localTimeDilation = packet.clientTimeDilation
+            inputsSender.ackInputSeq(packet.ackedInputSeq)
             trace('Local time dilation', localTimeDilation)
         }
     }

@@ -1,4 +1,5 @@
-import { InputsUnit, newInputsUnit } from '../shared/inputs.js'
+import { InputHistoryItem, InputsUnit, newInputsUnit } from '../shared/inputs.js'
+import {textEncoder} from '../shared/utils.js'
 
 let curFrameInputs = newInputsUnit()
 
@@ -28,6 +29,7 @@ export const bindInputsListeners = (canvas: HTMLCanvasElement): void => {
         }
     }
 }
+
 let lastMouseDx = 0
 let lastMouseDy = 0
 const handleMouseMoveEvent = (dx: number, dy: number): void => {
@@ -45,4 +47,35 @@ export const consumeAccumulatedInputs = (): InputsUnit => {
     curFrameInputs = newInputsUnit()
     curFrameInputs.clicking = result.clicking
     return result
+}
+
+export class InputsSender {
+    private tickInputsHistory: InputHistoryItem[] = []
+    private inputSeqAtHeadOfHistory: number = 0
+    private ackedInputSeq: number | null = null
+
+    addTickInputsAndMakePacket(inputs: InputsUnit): ArrayBuffer {
+        this.tickInputsHistory.unshift(inputs)
+        this.inputSeqAtHeadOfHistory += 1
+
+        const send: any[] = [ this.inputSeqAtHeadOfHistory ]
+        for (let i = 0; i < this.tickInputsHistory.length; ++i) {
+            let historyItem = this.tickInputsHistory[i]
+            if (this.ackedInputSeq !== null && this.inputSeqAtHeadOfHistory - i <= this.ackedInputSeq) {
+                break
+            }
+            send.push(historyItem)
+        }
+
+        return textEncoder.encode(JSON.stringify(send)).buffer
+    }
+
+    ackInputSeq(seq: number): void {
+        this.ackedInputSeq = seq
+    }
+
+    resetConnection(): void {
+        this.tickInputsHistory = ['reset']
+        this.inputSeqAtHeadOfHistory += 1
+    }
 }

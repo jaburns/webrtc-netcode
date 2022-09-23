@@ -52,7 +52,7 @@ const renderDebug = (): void => {
     console.log(`\x1B[${(lastNumTraces + 2).toString()}A`)
     console.log(' '.repeat(40))
     for (const id in traces) {
-        console.log(`${id} = ${traces[id].toString()}${' '.repeat(10)}`)
+        console.log(`${id} = ${traces[id].toString()}${' '.repeat(5)}`)
     }
     lastNumTraces = Object.keys(traces).length
 
