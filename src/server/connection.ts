@@ -11,7 +11,7 @@ export interface ServerConnection {
     close: () => void
 }
 
-export const createConnection = async (socket: any): Promise<ServerConnection> => {
+export const createConnection = async (playerId: string, socket: any): Promise<ServerConnection> => {
     const peer = new PeerConnection('conn', {
         iceServers: ['stun:stun.l.google.com:19302'],
         iceTransportPolicy: 'all',
@@ -40,7 +40,7 @@ export const createConnection = async (socket: any): Promise<ServerConnection> =
     socket.addEventListener('message', (e: any) => {
         const desc = JSON.parse(e.data)
         peer.setRemoteDescription(desc.sdp, desc.type)
-        socket.send('d')
+        socket.send('d' + JSON.stringify([playerId]))
         for (const c of candidates!) {
             socket.send(c)
         }

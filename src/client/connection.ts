@@ -1,6 +1,7 @@
 import { DebugInfoSet } from '../shared/utils.js'
 
 export interface ClientConnection {
+    playerId: string,
     send: (bytes: ArrayBuffer) => void
     recvDebugInfo: () => DebugInfoSet
     recv: () => ArrayBuffer[]
@@ -20,27 +21,24 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
 
     await rtcPeerConn.setRemoteDescription(sdp)
 
-    let descriptionResolve: () => void = 0 as any
-    const descriptionPromise = new Promise<void>(resolve => { descriptionResolve = resolve })
+    let descriptionResolve: (playerId: string) => void = 0 as any
+    const descriptionPromise = new Promise<string>(resolve => { descriptionResolve = resolve })
     let earlyDatachannel: RTCDataChannel | null = null
     let resolveDatachannel: ((x: RTCDataChannel) => void) | null = null
 
     let accDebugInfos: DebugInfoSet = {}
 
     ws.addEventListener('message', e => {
-        const payload = e.data.substring(1)
+        const payload = JSON.parse(e.data.substring(1))
         switch (e.data[0]) {
             case 'c':
-                console.log(payload)
-                rtcPeerConn.addIceCandidate(JSON.parse(payload))
+                rtcPeerConn.addIceCandidate(payload)
                 break
             case 'd':
-                console.log('d')
-                descriptionResolve()
+                descriptionResolve(payload[0])
                 break
             case 'i':
-                console.log('i')
-                Object.assign(accDebugInfos, JSON.parse(payload))
+                Object.assign(accDebugInfos, payload)
                 break
         }
     })
@@ -63,7 +61,7 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
 
     ws.send(JSON.stringify(updatedAnswer))
 
-    await descriptionPromise
+    const playerId = await descriptionPromise
 
     const dc = await new Promise<RTCDataChannel>(resolve => {
         if (earlyDatachannel !== null) {
@@ -80,6 +78,7 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
     }
 
     return {
+        playerId,
         send (bytes) {
             dc.send(bytes)
         },

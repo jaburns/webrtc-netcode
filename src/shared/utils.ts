@@ -30,3 +30,5 @@ export const setGlobalDebugInfoFn = (fn: DebugInfoFn): void => {
 export const trace = (k: string, v: string | number | boolean): void => {
     debugInfoFn(k, v)
 }
+
+export const clone = <T>(a: T): T => JSON.parse(JSON.stringify(a))
