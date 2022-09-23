@@ -1,18 +1,21 @@
 import { ServerConnection } from './connection.js'
 import { TICK_MILLIS, TICKS_PER_SERVER_UPDATE, trace } from '../shared/utils.js'
-import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
+import { newGameState, newPlayerState, tickPlayer } from '../shared/state.js'
 import { InputsReceiver } from './inputs.js'
+import { StateUpdateSender } from './state.js'
 
 interface PlayerConnection {
     connection: ServerConnection,
     confirmed: boolean,
     inputsReceiver: InputsReceiver,
+    updateSender: StateUpdateSender,
 }
 
 const newPlayerConnection = (playerId: string, connection: ServerConnection): PlayerConnection => ({
     connection,
     confirmed: false,
     inputsReceiver: new InputsReceiver(playerId),
+    updateSender: new StateUpdateSender(),
 })
 
 let tickAccMillis = 0
@@ -58,30 +61,24 @@ const tick = (): void => {
         }
     }
 
-    tickState(state)
-
-    if (state.serverTick % TICKS_PER_SERVER_UPDATE === 0) {
-        for (const id in players) {
-            sendUpdateToPlayer(players[id])
-        }
-    }
-}
-
-const tickState = (state: GameState): void => {
     state.serverTick += 1
-
     for (const id in state.players) {
         const player = players[id]
         player.inputsReceiver.tick()
         tickPlayer(state.players[id], player.inputsReceiver.getCurrentInputs())
     }
-}
 
-const sendUpdateToPlayer = (player: PlayerConnection): void => {
-    const packet: ServerStatePacket = {
-        state,
-        ackedInputSeq: player.inputsReceiver.getAckedInputSeq(),
-        clientTimeDilation: player.inputsReceiver.getClientTimeDilation(),
+    if (state.serverTick % TICKS_PER_SERVER_UPDATE === 0) {
+        for (const id in players) {
+            const player = players[id]
+
+            const packet = player.updateSender.makeUpdatePacket(
+                state,
+                player.inputsReceiver.getAckedInputSeq(),
+                player.inputsReceiver.getClientTimeDilation(),
+            )
+
+            player.connection.send(packet)
+        }
     }
-    player.connection.send(serializeServerStatePacket(packet))
 }

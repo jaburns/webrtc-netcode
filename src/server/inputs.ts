@@ -8,28 +8,30 @@ export class InputsReceiver {
     private ackedInputSeq: number = 0
     private inputsBuffer: InputsUnit[] = []
     private currentInputs: InputsUnit = newInputsUnit()
-    private targetInputsBufferSize: number = 4
+    private readonly targetInputsBufferSize: number = 8
     private confirmed: boolean = false
 
     private readonly playerId: string // only needed for logs
 
-    constructor(playerId: string) {
+    constructor (playerId: string) {
         this.playerId = playerId
     }
 
-    getCurrentInputs(): InputsUnit {
+    getCurrentInputs (): InputsUnit {
         return this.currentInputs
     }
-    getClientTimeDilation(): number {
+
+    getClientTimeDilation (): number {
         return Math.sign(this.inputsBuffer.length - this.targetInputsBufferSize + 1)
     }
-    getAckedInputSeq(): number {
+
+    getAckedInputSeq (): number {
         return this.ackedInputSeq
     }
 
-    receiveInputsPacket(packet: ArrayBuffer) {
+    receiveInputsPacket (packet: ArrayBuffer): void {
         const recv: any[] = JSON.parse(textDecoder.decode(packet))
-        const mostRecentSeq: number = recv.shift() as any
+        const mostRecentSeq: number = recv.shift()
 
         trace(`Receiving input seq (${this.playerId})`, mostRecentSeq)
 
@@ -40,7 +42,7 @@ export class InputsReceiver {
         const amountToTake = mostRecentSeq - this.ackedInputSeq
         this.ackedInputSeq = mostRecentSeq
 
-        let items = recv.slice(0, amountToTake)
+        const items = recv.slice(0, amountToTake)
 
         while (items.length > 0) {
             const item = items.pop()!
@@ -53,7 +55,7 @@ export class InputsReceiver {
             } else {
                 this.inputsBuffer.push({
                     clicking: item[0] !== 0,
-                    mouseDelta: [item[1], item[2]]
+                    mouseDelta: [item[1], item[2]],
                 })
             }
         }
@@ -61,7 +63,7 @@ export class InputsReceiver {
         trace(`Inputs buffer length (${this.playerId})`, this.inputsBuffer.length)
     }
 
-    tick() {
+    tick (): void {
         if (this.inputsBuffer.length > 0 && this.guessedInputs > 0) {
             if (this.catchUpCombinedInputs === null) {
                 this.catchUpCombinedInputs = newInputsUnit()

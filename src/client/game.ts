@@ -1,23 +1,22 @@
-import { deserializeServerStatePacket, GameState, newGameState, PlayerState, tickPlayer } from '../shared/state.js'
+import { GameState, newGameState, PlayerState, tickPlayer } from '../shared/state.js'
 import { trace, TICK_MILLIS, clone, TICKS_PER_SERVER_UPDATE, log } from '../shared/utils.js'
 import { ClientConnection } from './connection.js'
 import { consumeAccumulatedInputs, InputsSender } from './inputs.js'
 import { renderGame } from './render.js'
+import { StateUpdateReceiver } from './state.js'
 
 let connection: ClientConnection
 
 let lastNow = Date.now()
 
-const serverStateBuffer: GameState[] = []
 let prevStateView: GameState = newGameState()
 let curStateView: GameState = newGameState()
 
 let prevLocalClientState: PlayerState | null = null
 let curLocalClientState: PlayerState | null = null
 
-let inputsSender: InputsSender = new InputsSender()
-
-const targetStateBufferSize: number = 2
+const inputsSender = new InputsSender()
+const updateReceiver = new StateUpdateReceiver()
 
 let localTickAccMillis = 0
 let localTimeDilation: number = 0
@@ -40,9 +39,9 @@ export const gameFrame = (): void => {
         prevLocalClientState = null
         localTickAccMillis = 0
         remoteUpdateAccMillis = 0
-        serverStateBuffer.length = 0
         connection.recv()
         inputsSender.resetConnection()
+        updateReceiver.resetConnection()
         return
     }
 
@@ -88,11 +87,13 @@ const runLocalTick = (): void => {
 }
 
 const runRemoteUpdate = (): void => {
-    receiveIncomingPackets()
+    updateReceiver.receivePackets(connection.recv())
+
+    const maybeNewState = updateReceiver.maybeGetNewState()
 
     prevStateView = curStateView
-    if (serverStateBuffer.length > 0) {
-        curStateView = serverStateBuffer.shift()!
+    if (maybeNewState !== null) {
+        curStateView = maybeNewState
 
         if (curLocalClientState === null && connection.playerId in curStateView.players) {
             log('Initializing local player from server state')
@@ -101,24 +102,10 @@ const runRemoteUpdate = (): void => {
         }
     }
 
-    remoteTimeDilation = Math.sign(targetStateBufferSize - serverStateBuffer.length - 1)
-}
+    localTimeDilation = updateReceiver.getLocalTimeDilation()
+    remoteTimeDilation = updateReceiver.getRemoteTimeDilation()
+    inputsSender.ackInputSeq(updateReceiver.getAckedInputSeq())
 
-const receiveIncomingPackets = (): void => {
-    let seenFirstPacket = false
-
-    for (const bytes of connection.recv()) {
-        trace('State packet size', bytes.byteLength)
-        const packet = deserializeServerStatePacket(bytes)
-        serverStateBuffer.push(packet.state)
-
-        if (!seenFirstPacket) {
-            seenFirstPacket = true
-            localTimeDilation = packet.clientTimeDilation
-            inputsSender.ackInputSeq(packet.ackedInputSeq)
-            trace('Local time dilation', localTimeDilation)
-        }
-    }
-
-    trace('State buffer size', serverStateBuffer.length)
+    trace('Local time dilation', localTimeDilation)
+    trace('Remote time dilation', remoteTimeDilation)
 }

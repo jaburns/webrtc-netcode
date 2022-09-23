@@ -65,4 +65,3 @@ setInterval(() => {
     gameNotifyConnections(connections)
     gameFrame()
 }, 5)
-

@@ -54,7 +54,7 @@ export class InputsSender {
     private inputSeqAtHeadOfHistory: number = 0
     private ackedInputSeq: number | null = null
 
-    addTickInputsAndMaybeMakePacket(inputs: InputsUnit): ArrayBuffer | null {
+    addTickInputsAndMaybeMakePacket (inputs: InputsUnit): ArrayBuffer | null {
         this.tickInputsHistory.unshift(inputs)
         this.inputSeqAtHeadOfHistory += 1
 
@@ -62,16 +62,16 @@ export class InputsSender {
             return null
         }
 
-        const send: any[] = [ this.inputSeqAtHeadOfHistory ]
+        const send: any[] = [this.inputSeqAtHeadOfHistory]
         for (let i = 0; i < this.tickInputsHistory.length; ++i) {
-            let historyItem = this.tickInputsHistory[i]
+            const historyItem = this.tickInputsHistory[i]
             if (this.ackedInputSeq !== null && this.inputSeqAtHeadOfHistory - i <= this.ackedInputSeq) {
                 break
             }
             if (historyItem === 'reset') {
                 send.push(0)
             } else {
-                send.push([historyItem.clicking?1:0, historyItem.mouseDelta[0], historyItem.mouseDelta[1]])
+                send.push([historyItem.clicking ? 1 : 0, historyItem.mouseDelta[0], historyItem.mouseDelta[1]])
             }
         }
 
@@ -84,11 +84,11 @@ export class InputsSender {
         return packet
     }
 
-    ackInputSeq(seq: number): void {
+    ackInputSeq (seq: number): void {
         this.ackedInputSeq = seq
     }
 
-    resetConnection(): void {
+    resetConnection (): void {
         this.tickInputsHistory = ['reset']
         this.inputSeqAtHeadOfHistory += 1
     }
