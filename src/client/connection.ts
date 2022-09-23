@@ -1,3 +1,5 @@
+import { trace } from '../shared/utils.js'
+
 export interface ClientConnection {
     playerId: string,
     send: (bytes: ArrayBuffer) => void
@@ -73,6 +75,7 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
     return {
         playerId,
         send (bytes) {
+            trace('Datachannel buffered amount', dc.bufferedAmount)
             dc.send(bytes)
         },
         recv () {

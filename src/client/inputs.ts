@@ -1,5 +1,5 @@
 import { InputHistoryItem, InputsUnit, newInputsUnit } from '../shared/inputs.js'
-import {textEncoder} from '../shared/utils.js'
+import { textEncoder, trace } from '../shared/utils.js'
 
 let curFrameInputs = newInputsUnit()
 
@@ -54,9 +54,13 @@ export class InputsSender {
     private inputSeqAtHeadOfHistory: number = 0
     private ackedInputSeq: number | null = null
 
-    addTickInputsAndMakePacket(inputs: InputsUnit): ArrayBuffer {
+    addTickInputsAndMaybeMakePacket(inputs: InputsUnit): ArrayBuffer | null {
         this.tickInputsHistory.unshift(inputs)
         this.inputSeqAtHeadOfHistory += 1
+
+        if (this.inputSeqAtHeadOfHistory % 2 !== 0) {
+            return null
+        }
 
         const send: any[] = [ this.inputSeqAtHeadOfHistory ]
         for (let i = 0; i < this.tickInputsHistory.length; ++i) {
@@ -64,10 +68,20 @@ export class InputsSender {
             if (this.ackedInputSeq !== null && this.inputSeqAtHeadOfHistory - i <= this.ackedInputSeq) {
                 break
             }
-            send.push(historyItem)
+            if (historyItem === 'reset') {
+                send.push(0)
+            } else {
+                send.push([historyItem.clicking?1:0, historyItem.mouseDelta[0], historyItem.mouseDelta[1]])
+            }
         }
 
-        return textEncoder.encode(JSON.stringify(send)).buffer
+        const packet = textEncoder.encode(JSON.stringify(send)).buffer
+
+        trace('Sending input seq', this.inputSeqAtHeadOfHistory)
+        trace('Server-acked input seq', this.ackedInputSeq!)
+        trace('Inputs packet size', packet.byteLength)
+
+        return packet
     }
 
     ackInputSeq(seq: number): void {

@@ -1,4 +1,5 @@
 import nodeDataChannel from 'node-datachannel'
+import { trace } from '../shared/utils.js'
 const { PeerConnection } = nodeDataChannel
 
 // nodeDataChannel.initLogger('Debug')
@@ -55,6 +56,7 @@ export const createConnection = async (playerId: string, socket: any): Promise<S
     return {
         send (bytes) {
             if (!dc.isOpen()) return
+            trace(`Datachannel buffered amount (${playerId})`, dc.bufferedAmount())
             dc.sendMessageBinary(Buffer.from(bytes))
         },
         recv () {

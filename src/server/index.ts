@@ -50,13 +50,13 @@ let lastNumTraces = 0
 const renderDebug = (): void => {
     const traces = getTraces()
     console.log(`\x1B[${(lastNumTraces + 2).toString()}A`)
-    console.log(' '.repeat(40))
+    console.log('-'.repeat(40))
     for (const id in traces) {
         console.log(`${id} = ${traces[id].toString()}${' '.repeat(5)}`)
     }
     lastNumTraces = Object.keys(traces).length
 
-    consumeLogs().forEach(x => console.log(' '.repeat(40) + x))
+    consumeLogs().forEach(x => console.log(' '.repeat(45) + x))
 }
 
 setInterval(renderDebug, 50)

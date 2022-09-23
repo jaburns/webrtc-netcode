@@ -78,8 +78,10 @@ const runLocalTick = (): void => {
     if (curLocalClientState === null) return
 
     const tickInputs = consumeAccumulatedInputs()
-    const packet = inputsSender.addTickInputsAndMakePacket(tickInputs)
-    connection.send(packet)
+    const maybePacket = inputsSender.addTickInputsAndMaybeMakePacket(tickInputs)
+    if (maybePacket !== null) {
+        connection.send(maybePacket)
+    }
 
     prevLocalClientState = clone(curLocalClientState)
     tickPlayer(curLocalClientState, tickInputs)

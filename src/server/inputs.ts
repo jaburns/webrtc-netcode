@@ -1,4 +1,4 @@
-import { addInputsUnits, InputHistoryItem, InputsUnit, newInputsUnit } from '../shared/inputs.js'
+import { addInputsUnits, InputsUnit, newInputsUnit } from '../shared/inputs.js'
 import { textDecoder, log, TICKS_PER_SECOND, trace } from '../shared/utils.js'
 
 export class InputsReceiver {
@@ -8,7 +8,7 @@ export class InputsReceiver {
     private ackedInputSeq: number = 0
     private inputsBuffer: InputsUnit[] = []
     private currentInputs: InputsUnit = newInputsUnit()
-    private targetInputsBufferSize: number = 8
+    private targetInputsBufferSize: number = 4
     private confirmed: boolean = false
 
     private readonly playerId: string // only needed for logs
@@ -28,11 +28,12 @@ export class InputsReceiver {
     }
 
     receiveInputsPacket(packet: ArrayBuffer) {
-        const recv: InputHistoryItem[] = JSON.parse(textDecoder.decode(packet))
+        const recv: any[] = JSON.parse(textDecoder.decode(packet))
         const mostRecentSeq: number = recv.shift() as any
 
+        trace(`Receiving input seq (${this.playerId})`, mostRecentSeq)
+
         if (mostRecentSeq <= this.ackedInputSeq) {
-            log('Dropping out of order input packet')
             return
         }
 
@@ -43,14 +44,17 @@ export class InputsReceiver {
 
         while (items.length > 0) {
             const item = items.pop()!
-            if (item === 'reset') {
+            if (item === 0) {
                 log(`Client "${this.playerId}" sent a reset, unconfirming`)
                 this.inputsBuffer.length = 0
                 this.guessedInputs = 0
                 this.catchUpCombinedInputs = null
                 this.confirmed = false
             } else {
-                this.inputsBuffer.push(item)
+                this.inputsBuffer.push({
+                    clicking: item[0] !== 0,
+                    mouseDelta: [item[1], item[2]]
+                })
             }
         }
 
