@@ -1,4 +1,4 @@
-import { serializeInputsPacket } from '../shared/inputs.js'
+import { InputsSender } from '../shared/inputs.js'
 import { deserializeServerStatePacket, GameState, newGameState, PlayerState, tickPlayer } from '../shared/state.js'
 import { trace, TICK_MILLIS, clone, TICKS_PER_SERVER_UPDATE, log } from '../shared/utils.js'
 import { ClientConnection } from './connection.js'
@@ -15,7 +15,8 @@ let curStateView: GameState = newGameState()
 
 let prevLocalClientState: PlayerState | null = null
 let curLocalClientState: PlayerState | null = null
-let localEstimatedServerTick: number = 0
+
+let inputsSender: InputsSender = new InputsSender()
 
 const targetStateBufferSize: number = 2
 
@@ -42,7 +43,7 @@ export const gameFrame = (): void => {
         remoteUpdateAccMillis = 0
         serverStateBuffer.length = 0
         connection.recv()
-        connection.send(serializeInputsPacket({ unit: 'reset' })) // TODO this needs to go through the inputs reliability layer
+        inputsSender.resetConnection()
         return
     }
 
@@ -77,14 +78,12 @@ export const gameFrame = (): void => {
 const runLocalTick = (): void => {
     if (curLocalClientState === null) return
 
-    const inputs = consumeAccumulatedInputs()
-    connection.send(serializeInputsPacket({ unit: inputs }))
+    const tickInputs = consumeAccumulatedInputs()
+    const packet = inputsSender.addTickInputsAndMakePacket(tickInputs)
+    connection.send(packet)
 
     prevLocalClientState = clone(curLocalClientState)
-    tickPlayer(curLocalClientState, inputs)
-    localEstimatedServerTick += 1
-
-    trace('Local ticks ahead', localEstimatedServerTick - curStateView.serverTick)
+    tickPlayer(curLocalClientState, tickInputs)
 }
 
 const runRemoteUpdate = (): void => {
@@ -98,7 +97,6 @@ const runRemoteUpdate = (): void => {
             log('Initializing local player from server state')
             curLocalClientState = clone(curStateView.players[connection.playerId])
             prevLocalClientState = curLocalClientState
-            localEstimatedServerTick = curStateView.serverTick
         }
     }
 

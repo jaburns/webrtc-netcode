@@ -1,26 +1,18 @@
 import { ServerConnection } from './connection.js'
-import { trace, TICK_MILLIS, TICKS_PER_SERVER_UPDATE, log } from '../shared/utils.js'
+import { TICK_MILLIS, TICKS_PER_SERVER_UPDATE } from '../shared/utils.js'
 import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
-import { addInputsUnits, deserializeInputsPacket, InputsUnit, newInputsUnit } from '../shared/inputs.js'
+import { InputsReceiver } from '../shared/inputs.js'
 
 interface PlayerConnection {
     connection: ServerConnection,
     confirmed: boolean,
-    burntInputs: InputsUnit | null,
-    inputsToBurn: number,
-    inputsBuffer: InputsUnit[],
-    currentInputs: InputsUnit,
-    targetInputsBufferSize: number,
+    inputsReceiver: InputsReceiver,
 }
 
-const newPlayerConnection = (connection: ServerConnection): PlayerConnection => ({
+const newPlayerConnection = (playerId: string, connection: ServerConnection): PlayerConnection => ({
     connection,
     confirmed: false,
-    burntInputs: null,
-    inputsToBurn: 0,
-    inputsBuffer: [],
-    currentInputs: newInputsUnit(),
-    targetInputsBufferSize: 2,
+    inputsReceiver: new InputsReceiver(playerId),
 })
 
 let tickAccMillis = 0
@@ -32,7 +24,7 @@ const players: Record<string, PlayerConnection> = {}
 export const gameNotifyConnections = (connections: Record<string, ServerConnection>): void => {
     for (const id in connections) {
         if (!(id in players)) {
-            players[id] = newPlayerConnection(connections[id])
+            players[id] = newPlayerConnection(id, connections[id])
             state.players[id] = newPlayerState()
         }
     }
@@ -59,19 +51,8 @@ export const gameFrame = (): void => {
 const tick = (): void => {
     for (const id in players) {
         for (const bytes of players[id].connection.recv()) {
-            const packet = deserializeInputsPacket(bytes)
-
-            if (packet.unit === 'reset') {
-                log(`Client "${id}" sent a reset, unconfirming`)
-                players[id].inputsBuffer.length = 0
-                players[id].inputsToBurn = 0
-                players[id].burntInputs = null
-                players[id].confirmed = false
-            } else {
-                players[id].inputsBuffer.push(packet.unit)
-            }
+            players[id].inputsReceiver.receiveInputsPacket(bytes)
         }
-        trace(`Inputs buffer size (${id})`, players[id].inputsBuffer.length)
     }
 
     tickState(state)
@@ -88,48 +69,16 @@ const tickState = (state: GameState): void => {
 
     for (const id in state.players) {
         const player = players[id]
-
-        if (player.inputsBuffer.length > 0 && player.inputsToBurn > 0) {
-            log(`Burning ${player.inputsToBurn} inputs for player ${id}`)
-            if (player.burntInputs === null) {
-                player.burntInputs = newInputsUnit()
-            }
-        }
-
-        while (player.inputsBuffer.length > 0 && player.inputsToBurn > 0) {
-            const inputs = player.inputsBuffer.shift()!
-            player.inputsToBurn--
-            addInputsUnits(player.burntInputs!, player.burntInputs!, inputs)
-        }
-
-        if (player.inputsBuffer.length > 0) {
-            if (player.burntInputs !== null) {
-                addInputsUnits(player.currentInputs, player.burntInputs, player.inputsBuffer.shift()!)
-                player.burntInputs = null
-            } else {
-                player.currentInputs = player.inputsBuffer.shift()!
-            }
-
-            if (!player.confirmed) {
-                player.confirmed = true
-                log(`Confirmed player "${id}"`)
-            }
-        } else if (player.confirmed) {
-            player.inputsToBurn++
-            player.currentInputs.mouseDelta[0] = 0
-            player.currentInputs.mouseDelta[1] = 0
-        }
-
-        trace(`Inputs to burn (${id})`, player.inputsToBurn)
-
-        tickPlayer(state.players[id], player.currentInputs)
+        player.inputsReceiver.tick()
+        tickPlayer(state.players[id], player.inputsReceiver.getCurrentInputs())
     }
 }
 
 const sendUpdateToPlayer = (player: PlayerConnection): void => {
     const packet: ServerStatePacket = {
         state,
-        clientTimeDilation: Math.sign(player.inputsBuffer.length - player.targetInputsBufferSize + 1),
+        ackedInputSeq: player.inputsReceiver.getAckedInputSeq(),
+        clientTimeDilation: player.inputsReceiver.getClientTimeDilation(),
     }
     player.connection.send(serializeServerStatePacket(packet))
 }

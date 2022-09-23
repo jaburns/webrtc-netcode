@@ -1,5 +1,5 @@
 import { vec2 } from 'gl-matrix'
-import { textEncoder, textDecoder } from './utils.js'
+import { textEncoder, textDecoder, log, TICKS_PER_SECOND, trace } from './utils.js'
 
 export interface InputsUnit {
     mouseDelta: [number, number],
@@ -17,14 +17,119 @@ export const addInputsUnits = (out: InputsUnit, a: InputsUnit, b: InputsUnit): I
     return out
 }
 
-export interface InputsPacket {
-    unit: InputsUnit | 'reset',
+type InputHistoryItem = InputsUnit | 'reset'
+
+export class InputsSender {
+    private tickInputsHistory: InputHistoryItem[] = []
+    private inputSeqAtHeadOfHistory: number = 0
+    private ackedInputSeq: number | null = null
+
+    addTickInputsAndMakePacket(inputs: InputsUnit): ArrayBuffer {
+        this.tickInputsHistory.unshift(inputs)
+        this.inputSeqAtHeadOfHistory += 1
+
+        const send: any[] = [ this.inputSeqAtHeadOfHistory ]
+        for (let i = 1; i < this.tickInputsHistory.length; ++i) {
+            let historyItem = this.tickInputsHistory[i]
+            if (this.ackedInputSeq !== null && this.inputSeqAtHeadOfHistory - i <= this.ackedInputSeq) {
+                break
+            }
+            send.push(historyItem)
+        }
+
+        return textEncoder.encode(JSON.stringify(send)).buffer
+    }
+
+    ackInputSeq(seq: number): void {
+        this.ackedInputSeq = seq
+    }
+
+    resetConnection(): void {
+        this.tickInputsHistory = ['reset']
+        this.inputSeqAtHeadOfHistory += 1
+    }
 }
 
-export const serializeInputsPacket = (state: InputsPacket): ArrayBuffer => {
-    return textEncoder.encode(JSON.stringify(state)).buffer
-}
+export class InputsReceiver {
+    private catchUpCombinedInputs: InputsUnit | null = null
+    private guessedInputs: number = 0
 
-export const deserializeInputsPacket = (buffer: ArrayBuffer): InputsPacket => {
-    return JSON.parse(textDecoder.decode(buffer))
+    private ackedInputSeq: number = 0
+    private inputsBuffer: InputsUnit[] = []
+    private currentInputs: InputsUnit = newInputsUnit()
+    private targetInputsBufferSize: number = 2
+    private confirmed: boolean = false
+
+    private readonly playerId: string // only needed for logs
+
+    constructor(playerId: string) {
+        this.playerId = playerId
+    }
+
+    getCurrentInputs(): InputsUnit {
+        return this.currentInputs
+    }
+    getClientTimeDilation(): number {
+        return Math.sign(this.inputsBuffer.length - this.targetInputsBufferSize + 1)
+    }
+    getAckedInputSeq(): number {
+        return this.ackedInputSeq
+    }
+
+    receiveInputsPacket(packet: ArrayBuffer) {
+        const recv: InputHistoryItem[] = JSON.parse(textDecoder.decode(packet))
+        const mostRecentSeq: number = recv.pop() as any
+
+        // TODO continue here populating unacked input history
+
+        if (packet.unit === 'reset') {
+            log(`Client "${this.playerId}" sent a reset, unconfirming`)
+            this.inputsBuffer.length = 0
+            this.guessedInputs = 0
+            this.catchUpCombinedInputs = null
+            this.confirmed = false
+        } else {
+            this.inputsBuffer.push(packet.unit)
+        }
+
+        trace(`Inputs buffer size (${this.playerId})`, this.inputsBuffer.length)
+    }
+
+    tick() {
+        if (this.inputsBuffer.length > 0 && this.guessedInputs > 0) {
+            log(`Combining ${this.guessedInputs} inputs for this "${this.playerId}"`)
+            if (this.catchUpCombinedInputs === null) {
+                this.catchUpCombinedInputs = newInputsUnit()
+            }
+        }
+
+        while (this.inputsBuffer.length > 0 && this.guessedInputs > 0) {
+            const inputs = this.inputsBuffer.shift()!
+            this.guessedInputs--
+            addInputsUnits(this.catchUpCombinedInputs!, this.catchUpCombinedInputs!, inputs)
+        }
+
+        if (this.inputsBuffer.length > 0) {
+            if (this.catchUpCombinedInputs !== null) {
+                addInputsUnits(this.currentInputs, this.catchUpCombinedInputs, this.inputsBuffer.shift()!)
+                this.catchUpCombinedInputs = null
+            } else {
+                this.currentInputs = this.inputsBuffer.shift()!
+            }
+
+            if (!this.confirmed) {
+                this.confirmed = true
+                log(`Confirmed this "${this.playerId}"`)
+            }
+        } else if (this.confirmed) {
+            this.guessedInputs++
+            this.currentInputs.mouseDelta[0] = 0
+            this.currentInputs.mouseDelta[1] = 0
+            if (this.guessedInputs > TICKS_PER_SECOND) {
+                this.currentInputs.clicking = false
+            }
+        }
+
+        trace(`Guessed inputs (${this.playerId})`, this.guessedInputs)
+    }
 }

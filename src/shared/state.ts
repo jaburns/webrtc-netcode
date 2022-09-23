@@ -55,6 +55,7 @@ export const tickPlayer = (self: PlayerState, inputs: InputsUnit): void => {
 
 export interface ServerStatePacket {
     clientTimeDilation: number,
+    ackedInputSeq: number,
     state: GameState,
 }
 
