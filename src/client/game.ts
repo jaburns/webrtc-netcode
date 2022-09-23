@@ -1,6 +1,6 @@
 import { serializeInputsPacket } from '../shared/inputs.js'
 import { deserializeServerStatePacket, GameState, newGameState, PlayerState, tickPlayer } from '../shared/state.js'
-import { trace, TICK_MILLIS, clone, TICKS_PER_SERVER_UPDATE } from '../shared/utils.js'
+import { trace, TICK_MILLIS, clone, TICKS_PER_SERVER_UPDATE, log } from '../shared/utils.js'
 import { ClientConnection } from './connection.js'
 import { consumeAccumulatedInputs } from './inputs.js'
 import { renderGame } from './render.js'
@@ -32,19 +32,39 @@ export const gameInit = (clientConnection: ClientConnection): void => {
 export const gameFrame = (): void => {
     const newNow = Date.now()
     const deltaNow = newNow - lastNow
-    localTickAccMillis += deltaNow
-    remoteUpdateAccMillis += deltaNow
     lastNow = newNow
 
+    if (deltaNow > 1000) {
+        log('Resetting connection')
+        curLocalClientState = null
+        prevLocalClientState = null
+        localTickAccMillis = 0
+        remoteUpdateAccMillis = 0
+        serverStateBuffer.length = 0
+        connection.recv()
+        connection.send(serializeInputsPacket({ unit: 'reset' })) // TODO this needs to go through the inputs reliability layer
+        return
+    }
+
+    localTickAccMillis += deltaNow
     const localTickMillis = TICK_MILLIS + localTimeDilation
     while (localTickAccMillis > localTickMillis) {
         localTickAccMillis -= localTickMillis
         runLocalTick()
     }
 
+    remoteUpdateAccMillis += deltaNow
     const remoteUpdateMillis = TICKS_PER_SERVER_UPDATE * (TICK_MILLIS + remoteTimeDilation)
-    while (remoteUpdateAccMillis > remoteUpdateMillis) {
-        remoteUpdateAccMillis -= remoteUpdateMillis
+
+    //while (remoteUpdateAccMillis > remoteUpdateMillis) {
+    //    remoteUpdateAccMillis -= remoteUpdateMillis
+    //    runRemoteUpdate()
+    //}
+
+    const numRemoteUpdates = Math.floor(remoteUpdateAccMillis / remoteUpdateMillis)
+    remoteUpdateAccMillis -= numRemoteUpdates * remoteUpdateMillis
+    if (numRemoteUpdates > 1) log(`Running multiple remote updates: ${numRemoteUpdates}`)
+    for (let i = 0; i < numRemoteUpdates; ++i) {
         runRemoteUpdate()
     }
 
@@ -81,7 +101,7 @@ const runRemoteUpdate = (): void => {
         curStateView = serverStateBuffer.shift()!
 
         if (curLocalClientState === null && connection.playerId in curStateView.players) {
-            console.log('Initializing local player from server state')
+            log('Initializing local player from server state')
             curLocalClientState = clone(curStateView.players[connection.playerId])
             prevLocalClientState = curLocalClientState
             localEstimatedServerTick = curStateView.serverTick

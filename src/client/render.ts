@@ -1,6 +1,6 @@
 import { vec2 } from 'gl-matrix'
 import { GameState, PlayerState } from '../shared/state.js'
-import { getTraces, lerpAngle, PLAYER_RADIUS } from '../shared/utils.js'
+import { consumeLogs, getTraces, lerpAngle, PLAYER_RADIUS } from '../shared/utils.js'
 
 const vec2_0: vec2 = vec2.create()
 
@@ -55,11 +55,13 @@ const renderPlayer = (pos: vec2, theta: number): void => {
     ctx.stroke()
 }
 
-export const renderTraces = (): void => {
+export const renderDebug = (): void => {
     let html = ''
     const traces = getTraces()
     for (const k in traces) {
         html += `<p>${k} = ${traces[k].toString()}</p>`
     }
     debugInfoDiv.innerHTML = html
+
+    consumeLogs().forEach(x => console.log(x))
 }

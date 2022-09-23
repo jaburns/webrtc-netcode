@@ -18,7 +18,7 @@ export const addInputsUnits = (out: InputsUnit, a: InputsUnit, b: InputsUnit): I
 }
 
 export interface InputsPacket {
-    unit: InputsUnit,
+    unit: InputsUnit | 'reset',
 }
 
 export const serializeInputsPacket = (state: InputsPacket): ArrayBuffer => {

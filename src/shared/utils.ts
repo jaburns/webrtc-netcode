@@ -20,9 +20,17 @@ export const lerpAngle = (a: number, b: number, t: number): number => {
     return a + lerp * t
 }
 
+export const clone = <T>(a: T): T => JSON.parse(JSON.stringify(a))
+
 export type TraceSet = Record<string, string | number | boolean>
 const allTraces: TraceSet = {}
 export const trace = (k: string, v: string | number | boolean): void => { allTraces[k] = v }
 export const getTraces = (): TraceSet => allTraces
 
-export const clone = <T>(a: T): T => JSON.parse(JSON.stringify(a))
+let allLogs: string[] = []
+export const log = (log: string): void => { allLogs.push(log) }
+export const consumeLogs = (): string[] => {
+    const out = allLogs
+    allLogs = []
+    return out
+}

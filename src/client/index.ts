@@ -1,7 +1,7 @@
 import { ClientConnection, createConnection } from './connection.js'
 import { gameFrame, gameInit } from './game.js'
 import { bindInputsListeners } from './inputs.js'
-import { renderInit, renderTraces } from './render.js'
+import { renderInit, renderDebug } from './render.js'
 
 let connection: ClientConnection
 
@@ -14,7 +14,7 @@ const main = async (): Promise<void> => {
     renderInit(canvas.getContext('2d')!, debugDiv)
 
     setInterval(() => {
-        renderTraces()
+        renderDebug()
     }, 50)
 
     bindInputsListeners(canvas)

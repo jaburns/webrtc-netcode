@@ -1,5 +1,5 @@
 import { ServerConnection } from './connection.js'
-import { trace, TICK_MILLIS, TICKS_PER_SERVER_UPDATE } from '../shared/utils.js'
+import { trace, TICK_MILLIS, TICKS_PER_SERVER_UPDATE, log } from '../shared/utils.js'
 import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
 import { deserializeInputsPacket, InputsUnit, newInputsUnit } from '../shared/inputs.js'
 
@@ -56,9 +56,18 @@ export const gameFrame = (): void => {
 
 const tick = (): void => {
     for (const id in players) {
-        players[id].inputsBuffer.push(
-            ...players[id].connection.recv().map(x => deserializeInputsPacket(x).unit),
-        )
+        for (const bytes of players[id].connection.recv()) {
+            const packet = deserializeInputsPacket(bytes)
+
+            if (packet.unit === 'reset') {
+                log(`Client ${id} sent a reset`)
+                players[id].inputsBuffer.length = 0
+                players[id].guessedInputs = 0
+                players[id].confirmed = false
+            } else {
+                players[id].inputsBuffer.push(packet.unit)
+            }
+        }
         trace(`Inputs buffer size (${id})`, players[id].inputsBuffer.length)
     }
 
@@ -84,10 +93,11 @@ const tickState = (state: GameState): void => {
             players[id].currentInputs = players[id].inputsBuffer.shift()!
             players[id].confirmed = true
         } else {
-            if (!players[id].confirmed) {
+            if (players[id].confirmed) {
                 players[id].guessedInputs++
             }
         }
+        trace(`Guessed inputs (${id})`, players[id].guessedInputs)
         tickPlayer(state.players[id], players[id].currentInputs)
     }
 }

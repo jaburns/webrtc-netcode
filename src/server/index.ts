@@ -3,7 +3,7 @@ import express from 'express'
 import fs from 'fs'
 import { ServerConnection, createConnection } from './connection.js'
 import { gameNotifyConnections, gameFrame } from './game.js'
-import { getTraces } from '../shared/utils.js'
+import { consumeLogs, getTraces } from '../shared/utils.js'
 const oldRequire = createRequire(import.meta.url)
 const ws = oldRequire('ws')
 
@@ -39,6 +39,7 @@ app.listen(8080, () => {
     console.log('[32m╔═[39m[32m═══════════════════════════[39m[32m═╗[39m')
     console.log('[32m║ [39m[1m[35m Listening on port 8080... [39m[22m[32m ║[39m')
     console.log('[32m╚═[39m[32m═══════════════════════════[39m[32m═╝[39m')
+    console.log('')
 }).on('upgrade', (req, socket, head) => {
     wsServer.handleUpgrade(req, socket, head, (socket: any) => {
         wsServer.emit('connection', socket, req)
@@ -46,16 +47,22 @@ app.listen(8080, () => {
 })
 
 let lastNumTraces = 0
-setInterval(() => {
+const renderDebug = (): void => {
     const traces = getTraces()
-    console.log(`\x1B[${(lastNumTraces + 1).toString()}A`)
+    console.log(`\x1B[${(lastNumTraces + 2).toString()}A`)
+    console.log(' '.repeat(40))
     for (const id in traces) {
-        console.log(`${id} = ${traces[id].toString()}`)
+        console.log(`${id} = ${traces[id].toString()}${' '.repeat(10)}`)
     }
     lastNumTraces = Object.keys(traces).length
-}, 50)
+
+    consumeLogs().forEach(x => console.log(' '.repeat(40) + x))
+}
+
+setInterval(renderDebug, 50)
 
 setInterval(() => {
     gameNotifyConnections(connections)
     gameFrame()
 }, 5)
+
