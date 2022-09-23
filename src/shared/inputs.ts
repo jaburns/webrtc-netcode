@@ -29,7 +29,7 @@ export class InputsSender {
         this.inputSeqAtHeadOfHistory += 1
 
         const send: any[] = [ this.inputSeqAtHeadOfHistory ]
-        for (let i = 1; i < this.tickInputsHistory.length; ++i) {
+        for (let i = 0; i < this.tickInputsHistory.length; ++i) {
             let historyItem = this.tickInputsHistory[i]
             if (this.ackedInputSeq !== null && this.inputSeqAtHeadOfHistory - i <= this.ackedInputSeq) {
                 break
@@ -57,7 +57,7 @@ export class InputsReceiver {
     private ackedInputSeq: number = 0
     private inputsBuffer: InputsUnit[] = []
     private currentInputs: InputsUnit = newInputsUnit()
-    private targetInputsBufferSize: number = 2
+    private targetInputsBufferSize: number = 8
     private confirmed: boolean = false
 
     private readonly playerId: string // only needed for logs
@@ -78,18 +78,29 @@ export class InputsReceiver {
 
     receiveInputsPacket(packet: ArrayBuffer) {
         const recv: InputHistoryItem[] = JSON.parse(textDecoder.decode(packet))
-        const mostRecentSeq: number = recv.pop() as any
+        const mostRecentSeq: number = recv.shift() as any
 
-        // TODO continue here populating unacked input history
+        const amountToTake = mostRecentSeq - this.ackedInputSeq
+        this.ackedInputSeq = mostRecentSeq
 
-        if (packet.unit === 'reset') {
-            log(`Client "${this.playerId}" sent a reset, unconfirming`)
-            this.inputsBuffer.length = 0
-            this.guessedInputs = 0
-            this.catchUpCombinedInputs = null
-            this.confirmed = false
-        } else {
-            this.inputsBuffer.push(packet.unit)
+        let items = recv.slice(0, amountToTake)
+
+        trace('Amount to take', amountToTake)
+        trace('Acked input seq', this.ackedInputSeq)
+
+        trace(`Inputs buffer size (${this.playerId})`, this.inputsBuffer.length)
+
+        while (items.length > 0) {
+            const item = items.pop()!
+            if (item === 'reset') {
+                log(`Client "${this.playerId}" sent a reset, unconfirming`)
+                this.inputsBuffer.length = 0
+                this.guessedInputs = 0
+                this.catchUpCombinedInputs = null
+                this.confirmed = false
+            } else {
+                this.inputsBuffer.push(item)
+            }
         }
 
         trace(`Inputs buffer size (${this.playerId})`, this.inputsBuffer.length)

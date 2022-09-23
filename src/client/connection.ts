@@ -66,6 +66,7 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
 
     let messages: ArrayBuffer[] = []
     dc.onmessage = e => {
+        if (document.visibilityState === 'hidden') return
         messages.push(e.data)
     }
 

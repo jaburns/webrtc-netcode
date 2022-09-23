@@ -49,7 +49,6 @@ export const createConnection = async (playerId: string, socket: any): Promise<S
 
     let messages: ArrayBuffer[] = []
     dc.onMessage(msg => {
-        if (document.visibilityState === 'hidden') return
         messages.push((msg as Buffer).slice())
     })
 

@@ -107,8 +107,11 @@ const receiveIncomingPackets = (): void => {
     let seenFirstPacket = false
 
     for (const bytes of connection.recv()) {
+        trace('State packet size', bytes.byteLength)
         const packet = deserializeServerStatePacket(bytes)
         serverStateBuffer.push(packet.state)
+
+        inputsSender.ackInputSeq(packet.ackedInputSeq)
 
         if (!seenFirstPacket) {
             seenFirstPacket = true

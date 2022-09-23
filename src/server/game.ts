@@ -1,5 +1,5 @@
 import { ServerConnection } from './connection.js'
-import { TICK_MILLIS, TICKS_PER_SERVER_UPDATE } from '../shared/utils.js'
+import { TICK_MILLIS, TICKS_PER_SERVER_UPDATE, trace } from '../shared/utils.js'
 import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
 import { InputsReceiver } from '../shared/inputs.js'
 
@@ -51,6 +51,7 @@ export const gameFrame = (): void => {
 const tick = (): void => {
     for (const id in players) {
         for (const bytes of players[id].connection.recv()) {
+            trace(`Inputs packet size (${id})`, bytes.byteLength)
             players[id].inputsReceiver.receiveInputsPacket(bytes)
         }
     }
