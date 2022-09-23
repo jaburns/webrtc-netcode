@@ -48,22 +48,16 @@ export const gameFrame = (): void => {
 
     localTickAccMillis += deltaNow
     const localTickMillis = TICK_MILLIS + localTimeDilation
-    while (localTickAccMillis > localTickMillis) {
-        localTickAccMillis -= localTickMillis
+    const numLocalTicks = Math.floor(localTickAccMillis / localTickMillis)
+    localTickAccMillis -= numLocalTicks * localTickMillis
+    for (let i = 0; i < numLocalTicks; ++i) {
         runLocalTick()
     }
 
     remoteUpdateAccMillis += deltaNow
     const remoteUpdateMillis = TICKS_PER_SERVER_UPDATE * (TICK_MILLIS + remoteTimeDilation)
-
-    //while (remoteUpdateAccMillis > remoteUpdateMillis) {
-    //    remoteUpdateAccMillis -= remoteUpdateMillis
-    //    runRemoteUpdate()
-    //}
-
     const numRemoteUpdates = Math.floor(remoteUpdateAccMillis / remoteUpdateMillis)
     remoteUpdateAccMillis -= numRemoteUpdates * remoteUpdateMillis
-    if (numRemoteUpdates > 1) log(`Running multiple remote updates: ${numRemoteUpdates}`)
     for (let i = 0; i < numRemoteUpdates; ++i) {
         runRemoteUpdate()
     }

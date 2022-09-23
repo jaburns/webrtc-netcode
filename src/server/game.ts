@@ -1,12 +1,13 @@
 import { ServerConnection } from './connection.js'
 import { trace, TICK_MILLIS, TICKS_PER_SERVER_UPDATE, log } from '../shared/utils.js'
 import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
-import { deserializeInputsPacket, InputsUnit, newInputsUnit } from '../shared/inputs.js'
+import { addInputsUnits, deserializeInputsPacket, InputsUnit, newInputsUnit } from '../shared/inputs.js'
 
 interface PlayerConnection {
     connection: ServerConnection,
     confirmed: boolean,
-    guessedInputs: number,
+    burntInputs: InputsUnit | null,
+    inputsToBurn: number,
     inputsBuffer: InputsUnit[],
     currentInputs: InputsUnit,
     targetInputsBufferSize: number,
@@ -15,7 +16,8 @@ interface PlayerConnection {
 const newPlayerConnection = (connection: ServerConnection): PlayerConnection => ({
     connection,
     confirmed: false,
-    guessedInputs: 0,
+    burntInputs: null,
+    inputsToBurn: 0,
     inputsBuffer: [],
     currentInputs: newInputsUnit(),
     targetInputsBufferSize: 2,
@@ -60,9 +62,10 @@ const tick = (): void => {
             const packet = deserializeInputsPacket(bytes)
 
             if (packet.unit === 'reset') {
-                log(`Client ${id} sent a reset`)
+                log(`Client "${id}" sent a reset, unconfirming`)
                 players[id].inputsBuffer.length = 0
-                players[id].guessedInputs = 0
+                players[id].inputsToBurn = 0
+                players[id].burntInputs = null
                 players[id].confirmed = false
             } else {
                 players[id].inputsBuffer.push(packet.unit)
@@ -84,21 +87,42 @@ const tickState = (state: GameState): void => {
     state.serverTick += 1
 
     for (const id in state.players) {
-        while (players[id].inputsBuffer.length > 0 && players[id].guessedInputs > 0) {
-            players[id].inputsBuffer.shift()
-            players[id].guessedInputs--
-        }
+        const player = players[id]
 
-        if (players[id].inputsBuffer.length > 0) {
-            players[id].currentInputs = players[id].inputsBuffer.shift()!
-            players[id].confirmed = true
-        } else {
-            if (players[id].confirmed) {
-                players[id].guessedInputs++
+        if (player.inputsBuffer.length > 0 && player.inputsToBurn > 0) {
+            log(`Burning ${player.inputsToBurn} inputs for player ${id}`)
+            if (player.burntInputs === null) {
+                player.burntInputs = newInputsUnit()
             }
         }
-        trace(`Guessed inputs (${id})`, players[id].guessedInputs)
-        tickPlayer(state.players[id], players[id].currentInputs)
+
+        while (player.inputsBuffer.length > 0 && player.inputsToBurn > 0) {
+            const inputs = player.inputsBuffer.shift()!
+            player.inputsToBurn--
+            addInputsUnits(player.burntInputs!, player.burntInputs!, inputs)
+        }
+
+        if (player.inputsBuffer.length > 0) {
+            if (player.burntInputs !== null) {
+                addInputsUnits(player.currentInputs, player.burntInputs, player.inputsBuffer.shift()!)
+                player.burntInputs = null
+            } else {
+                player.currentInputs = player.inputsBuffer.shift()!
+            }
+
+            if (!player.confirmed) {
+                player.confirmed = true
+                log(`Confirmed player "${id}"`)
+            }
+        } else if (player.confirmed) {
+            player.inputsToBurn++
+            player.currentInputs.mouseDelta[0] = 0
+            player.currentInputs.mouseDelta[1] = 0
+        }
+
+        trace(`Inputs to burn (${id})`, player.inputsToBurn)
+
+        tickPlayer(state.players[id], player.currentInputs)
     }
 }
 
