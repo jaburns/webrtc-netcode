@@ -1,6 +1,6 @@
 import { serializeInputsPacket } from '../shared/inputs.js'
 import { deserializeServerStatePacket, GameState, newGameState, PlayerState, tickPlayer } from '../shared/state.js'
-import { trace, TICK_MILLIS, clone } from '../shared/utils.js'
+import { trace, TICK_MILLIS, clone, TICKS_PER_SERVER_UPDATE } from '../shared/utils.js'
 import { ClientConnection } from './connection.js'
 import { consumeAccumulatedInputs } from './inputs.js'
 import { renderGame } from './render.js'
@@ -20,7 +20,7 @@ let targetStateBufferSize: number = 2
 
 let localTickAccMillis = 0
 let localTimeDilation: number = 0
-let remoteTickAccMillis = 0
+let remoteUpdateAccMillis = 0
 let remoteTimeDilation: number = 0
 
 export const gameInit = (clientConnection: ClientConnection): void => {
@@ -31,7 +31,7 @@ export const gameFrame = (): void => {
     const newNow = Date.now()
     const deltaNow = newNow - lastNow
     localTickAccMillis += deltaNow
-    remoteTickAccMillis += deltaNow
+    remoteUpdateAccMillis += deltaNow
     lastNow = newNow
 
     let localTickMillis = TICK_MILLIS + localTimeDilation
@@ -40,17 +40,17 @@ export const gameFrame = (): void => {
         runLocalTick()
     }
 
-    let remoteTickMillis = TICK_MILLIS + remoteTimeDilation
-    while (remoteTickAccMillis > remoteTickMillis) {
-        remoteTickAccMillis -= remoteTickMillis
-        runRemoteTick()
+    let remoteUpdateMillis = TICKS_PER_SERVER_UPDATE * (TICK_MILLIS + remoteTimeDilation)
+    while (remoteUpdateAccMillis > remoteUpdateMillis) {
+        remoteUpdateAccMillis -= remoteUpdateMillis
+        runRemoteUpdate()
     }
 
     if (curLocalClientState !== null && prevLocalClientState !== null) {
         renderGame(
             prevStateView,
             curStateView,
-            remoteTickAccMillis / remoteTickMillis,
+            remoteUpdateAccMillis / remoteUpdateMillis,
             prevLocalClientState,
             curLocalClientState,
             localTickAccMillis / localTickMillis,
@@ -68,7 +68,7 @@ const runLocalTick = (): void => {
     tickPlayer(curLocalClientState, inputs)
 }
 
-const runRemoteTick = (): void => {
+const runRemoteUpdate = (): void => {
     receiveIncomingPackets()
 
     prevStateView = curStateView

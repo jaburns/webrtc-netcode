@@ -1,5 +1,5 @@
 import { ServerConnection } from './connection.js'
-import { trace, TICK_MILLIS } from '../shared/utils.js'
+import { trace, TICK_MILLIS, TICKS_PER_SERVER_UPDATE } from '../shared/utils.js'
 import { GameState, newGameState, newPlayerState, serializeServerStatePacket, ServerStatePacket, tickPlayer } from '../shared/state.js'
 import { deserializeInputsPacket, InputsUnit, newInputsUnit } from '../shared/inputs.js'
 
@@ -60,12 +60,16 @@ const tick = (): void => {
 
     tickState(state)
 
-    for (const id in players) {
-        sendUpdateToPlayer(players[id])
+    if (state.serverTick % TICKS_PER_SERVER_UPDATE === 0) {
+        for (const id in players) {
+            sendUpdateToPlayer(players[id])
+        }
     }
 }
 
 const tickState = (state: GameState): void => {
+    state.serverTick += 1
+
     for (const id in state.players) {
         if (players[id].inputsBuffer.length > 0) {
             players[id].currentInputs = players[id].inputsBuffer.shift()!
