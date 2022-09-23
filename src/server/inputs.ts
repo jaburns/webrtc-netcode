@@ -31,6 +31,11 @@ export class InputsReceiver {
         const recv: InputHistoryItem[] = JSON.parse(textDecoder.decode(packet))
         const mostRecentSeq: number = recv.shift() as any
 
+        if (mostRecentSeq <= this.ackedInputSeq) {
+            log('Dropping out of order input packet')
+            return
+        }
+
         const amountToTake = mostRecentSeq - this.ackedInputSeq
         this.ackedInputSeq = mostRecentSeq
 
@@ -49,18 +54,17 @@ export class InputsReceiver {
             }
         }
 
-        trace(`Inputs buffer size (${this.playerId})`, this.inputsBuffer.length)
+        trace(`Inputs buffer length (${this.playerId})`, this.inputsBuffer.length)
     }
 
     tick() {
-        if (this.inputsBuffer.length > 1 && this.guessedInputs > 0) {
-            log(`Combining ${this.guessedInputs} inputs for this "${this.playerId}". Available: ${this.inputsBuffer.length}`)
+        if (this.inputsBuffer.length > 0 && this.guessedInputs > 0) {
             if (this.catchUpCombinedInputs === null) {
                 this.catchUpCombinedInputs = newInputsUnit()
             }
         }
 
-        while (this.inputsBuffer.length > 1 && this.guessedInputs > 0) {
+        while (this.inputsBuffer.length > 0 && this.guessedInputs > 0) {
             const inputs = this.inputsBuffer.shift()!
             this.guessedInputs--
             addInputsUnits(this.catchUpCombinedInputs!, this.catchUpCombinedInputs!, inputs)

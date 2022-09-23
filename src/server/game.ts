@@ -50,9 +50,11 @@ export const gameFrame = (): void => {
 
 const tick = (): void => {
     for (const id in players) {
-        for (const bytes of players[id].connection.recv()) {
-            trace(`Inputs packet size (${id})`, bytes.byteLength)
+        const packets = players[id].connection.recv()
+        if (packets.length > 0) {
+            const bytes = packets.pop()!
             players[id].inputsReceiver.receiveInputsPacket(bytes)
+            trace(`Inputs packet size (${id})`, bytes.byteLength)
         }
     }
 
