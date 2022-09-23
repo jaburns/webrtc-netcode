@@ -76,6 +76,7 @@ const runRemoteTick = (): void => {
         curStateView = serverStateBuffer.shift()!
 
         if (curLocalClientState === null && connection.playerId in curStateView.players) {
+            console.log('Initializing local player from server state')
             curLocalClientState = clone(curStateView.players[connection.playerId])
             prevLocalClientState = curLocalClientState
         }

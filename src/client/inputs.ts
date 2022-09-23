@@ -3,24 +3,41 @@ import { InputsUnit, newInputsUnit } from '../shared/inputs.js'
 let curFrameInputs = newInputsUnit()
 
 export const bindInputsListeners = (canvas: HTMLCanvasElement): void => {
-    canvas.onmousedown = () => {
+    document.onmousedown = () => {
         if (document.pointerLockElement !== canvas) {
             canvas.requestPointerLock()
         } else {
             curFrameInputs.clicking = true
         }
     }
-
-    canvas.onmouseup = () => {
+    document.onmouseup = () => {
         if (document.pointerLockElement !== canvas) return
         curFrameInputs.clicking = false
     }
-
-    canvas.onmousemove = e => {
-        if (document.pointerLockElement !== canvas) return
-        curFrameInputs.mouseDelta[0] += e.movementX
-        curFrameInputs.mouseDelta[1] += e.movementY
+    if ('chrome' in window) {
+        (window as any).onpointerrawupdate = (es: PointerEvent): void => {
+            if (document.pointerLockElement !== canvas) return
+            for (let e of es.getCoalescedEvents()) {
+                handleMouseMoveEvent(e.movementX, e.movementY)
+            }
+        }
+    } else {
+        window.onmousemove = (e: MouseEvent): void => {
+            if (document.pointerLockElement !== canvas) return
+            handleMouseMoveEvent(e.movementX, e.movementY)
+        }
     }
+}
+let lastMouseDx = 0
+let lastMouseDy = 0
+const handleMouseMoveEvent = (dx: number, dy: number): void => {
+    if (Math.abs(dx) > 100 && dx * lastMouseDx < 0 || Math.abs(dy) > 100 && dy * lastMouseDy < 0) {
+        return
+    }
+    lastMouseDx = dx
+    lastMouseDy = dy
+    curFrameInputs.mouseDelta[0] += dx
+    curFrameInputs.mouseDelta[1] += dy
 }
 
 export const consumeAccumulatedInputs = (): InputsUnit => {
