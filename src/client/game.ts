@@ -9,14 +9,15 @@ let connection: ClientConnection
 
 let lastNow = Date.now()
 
-let serverStateBuffer: GameState[] = []
+const serverStateBuffer: GameState[] = []
 let prevStateView: GameState = newGameState()
 let curStateView: GameState = newGameState()
 
 let prevLocalClientState: PlayerState | null = null
 let curLocalClientState: PlayerState | null = null
+let localEstimatedServerTick: number = 0
 
-let targetStateBufferSize: number = 2
+const targetStateBufferSize: number = 2
 
 let localTickAccMillis = 0
 let localTimeDilation: number = 0
@@ -25,6 +26,7 @@ let remoteTimeDilation: number = 0
 
 export const gameInit = (clientConnection: ClientConnection): void => {
     connection = clientConnection
+    trace('Player ID', connection.playerId)
 }
 
 export const gameFrame = (): void => {
@@ -34,13 +36,13 @@ export const gameFrame = (): void => {
     remoteUpdateAccMillis += deltaNow
     lastNow = newNow
 
-    let localTickMillis = TICK_MILLIS + localTimeDilation
+    const localTickMillis = TICK_MILLIS + localTimeDilation
     while (localTickAccMillis > localTickMillis) {
         localTickAccMillis -= localTickMillis
         runLocalTick()
     }
 
-    let remoteUpdateMillis = TICKS_PER_SERVER_UPDATE * (TICK_MILLIS + remoteTimeDilation)
+    const remoteUpdateMillis = TICKS_PER_SERVER_UPDATE * (TICK_MILLIS + remoteTimeDilation)
     while (remoteUpdateAccMillis > remoteUpdateMillis) {
         remoteUpdateAccMillis -= remoteUpdateMillis
         runRemoteUpdate()
@@ -66,6 +68,9 @@ const runLocalTick = (): void => {
 
     prevLocalClientState = clone(curLocalClientState)
     tickPlayer(curLocalClientState, inputs)
+    localEstimatedServerTick += 1
+
+    trace('Local ticks ahead', localEstimatedServerTick - curStateView.serverTick)
 }
 
 const runRemoteUpdate = (): void => {
@@ -79,11 +84,11 @@ const runRemoteUpdate = (): void => {
             console.log('Initializing local player from server state')
             curLocalClientState = clone(curStateView.players[connection.playerId])
             prevLocalClientState = curLocalClientState
+            localEstimatedServerTick = curStateView.serverTick
         }
     }
 
     remoteTimeDilation = Math.sign(targetStateBufferSize - serverStateBuffer.length - 1)
-    trace('Remote time dilation', remoteTimeDilation)
 }
 
 const receiveIncomingPackets = (): void => {

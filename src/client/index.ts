@@ -1,8 +1,7 @@
-import { DebugInfoSet, setGlobalDebugInfoFn } from '../shared/utils.js'
 import { ClientConnection, createConnection } from './connection.js'
 import { gameFrame, gameInit } from './game.js'
 import { bindInputsListeners } from './inputs.js'
-import { renderDebugInfos, renderInit } from './render.js'
+import { renderInit, renderTraces } from './render.js'
 
 let connection: ClientConnection
 
@@ -14,14 +13,8 @@ const main = async (): Promise<void> => {
 
     renderInit(canvas.getContext('2d')!, debugDiv)
 
-    const clientDebugInfo: DebugInfoSet = {}
-    const serverDebugInfo: DebugInfoSet = {}
-    setGlobalDebugInfoFn((k, v) => {
-        clientDebugInfo[k] = v
-    })
     setInterval(() => {
-        Object.assign(serverDebugInfo, connection.recvDebugInfo())
-        renderDebugInfos(clientDebugInfo, serverDebugInfo)
+        renderTraces()
     }, 50)
 
     bindInputsListeners(canvas)

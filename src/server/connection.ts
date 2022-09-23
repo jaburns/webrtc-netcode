@@ -1,12 +1,10 @@
 import nodeDataChannel from 'node-datachannel'
-import { DebugInfoSet } from '../shared/utils'
-const { initLogger, PeerConnection } = nodeDataChannel
+const { PeerConnection } = nodeDataChannel
 
-initLogger('Debug')
+// nodeDataChannel.initLogger('Debug')
 
 export interface ServerConnection {
     send: (bytes: ArrayBuffer) => void
-    sendDebugInfo: (info: DebugInfoSet) => void
     recv: () => ArrayBuffer[]
     close: () => void
 }
@@ -58,9 +56,6 @@ export const createConnection = async (playerId: string, socket: any): Promise<S
         send (bytes) {
             if (!dc.isOpen()) return
             dc.sendMessageBinary(Buffer.from(bytes))
-        },
-        sendDebugInfo (info) {
-            socket.send('i' + JSON.stringify(info))
         },
         recv () {
             const out = messages

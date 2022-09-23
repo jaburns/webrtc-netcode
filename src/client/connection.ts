@@ -1,9 +1,6 @@
-import { DebugInfoSet } from '../shared/utils.js'
-
 export interface ClientConnection {
     playerId: string,
     send: (bytes: ArrayBuffer) => void
-    recvDebugInfo: () => DebugInfoSet
     recv: () => ArrayBuffer[]
     close: () => void
 }
@@ -26,8 +23,6 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
     let earlyDatachannel: RTCDataChannel | null = null
     let resolveDatachannel: ((x: RTCDataChannel) => void) | null = null
 
-    let accDebugInfos: DebugInfoSet = {}
-
     ws.addEventListener('message', e => {
         const payload = JSON.parse(e.data.substring(1))
         switch (e.data[0]) {
@@ -36,9 +31,6 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
                 break
             case 'd':
                 descriptionResolve(payload[0])
-                break
-            case 'i':
-                Object.assign(accDebugInfos, payload)
                 break
         }
     })
@@ -81,11 +73,6 @@ export const createConnection = async (ws: WebSocket): Promise<ClientConnection>
         playerId,
         send (bytes) {
             dc.send(bytes)
-        },
-        recvDebugInfo () {
-            const out = accDebugInfos
-            accDebugInfos = {}
-            return out
         },
         recv () {
             const out = messages

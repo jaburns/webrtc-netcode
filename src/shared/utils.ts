@@ -20,15 +20,9 @@ export const lerpAngle = (a: number, b: number, t: number): number => {
     return a + lerp * t
 }
 
-export type DebugInfoSet = Record<string, string | number | boolean>
-export type DebugInfoFn = (k: string, v: string | number | boolean) => void
-
-let debugInfoFn: DebugInfoFn
-export const setGlobalDebugInfoFn = (fn: DebugInfoFn): void => {
-    debugInfoFn = fn
-}
-export const trace = (k: string, v: string | number | boolean): void => {
-    debugInfoFn(k, v)
-}
+export type TraceSet = Record<string, string | number | boolean>
+const allTraces: TraceSet = {}
+export const trace = (k: string, v: string | number | boolean): void => { allTraces[k] = v }
+export const getTraces = (): TraceSet => allTraces
 
 export const clone = <T>(a: T): T => JSON.parse(JSON.stringify(a))

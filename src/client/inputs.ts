@@ -17,7 +17,7 @@ export const bindInputsListeners = (canvas: HTMLCanvasElement): void => {
     if ('chrome' in window) {
         (window as any).onpointerrawupdate = (es: PointerEvent): void => {
             if (document.pointerLockElement !== canvas) return
-            for (let e of es.getCoalescedEvents()) {
+            for (const e of es.getCoalescedEvents()) {
                 handleMouseMoveEvent(e.movementX, e.movementY)
             }
         }

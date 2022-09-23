@@ -2,8 +2,8 @@ import { createRequire } from 'node:module'
 import express from 'express'
 import fs from 'fs'
 import { ServerConnection, createConnection } from './connection.js'
-import { DebugInfoSet, setGlobalDebugInfoFn, } from '../shared/utils.js'
 import { gameNotifyConnections, gameFrame } from './game.js'
+import { getTraces } from '../shared/utils.js'
 const oldRequire = createRequire(import.meta.url)
 const ws = oldRequire('ws')
 
@@ -45,16 +45,14 @@ app.listen(8080, () => {
     })
 })
 
-let accDebugInfos: DebugInfoSet = {}
-setGlobalDebugInfoFn((k, v) => {
-    accDebugInfos[k] = v
-})
-
+let lastNumTraces = 0
 setInterval(() => {
-    for (const id in connections) {
-        connections[id].sendDebugInfo(accDebugInfos)
+    const traces = getTraces()
+    console.log(`\x1B[${(lastNumTraces + 1).toString()}A`)
+    for (const id in traces) {
+        console.log(`${id} = ${traces[id].toString()}`)
     }
-    accDebugInfos = {}
+    lastNumTraces = Object.keys(traces).length
 }, 50)
 
 setInterval(() => {

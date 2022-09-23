@@ -48,6 +48,7 @@
       "no-empty": "off",
       "no-unused-vars": "warn",
       "no-unreachable": "warn",
+      "no-mixed-operators": "off",
       "comma-dangle": [
         "error",
         "always-multiline"

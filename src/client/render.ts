@@ -1,6 +1,6 @@
 import { vec2 } from 'gl-matrix'
 import { GameState, PlayerState } from '../shared/state.js'
-import { DebugInfoSet, lerpAngle, PLAYER_RADIUS } from '../shared/utils.js'
+import { getTraces, lerpAngle, PLAYER_RADIUS } from '../shared/utils.js'
 
 const vec2_0: vec2 = vec2.create()
 
@@ -32,14 +32,14 @@ export const renderGame = (
         const player1 = state1.players[id]
         renderPlayer(
             vec2.lerp(vec2_0, player0.pos, player1.pos, remoteLerp),
-            lerpAngle(player0.theta, player1.theta, remoteLerp)
+            lerpAngle(player0.theta, player1.theta, remoteLerp),
         )
     }
 
     ctx.strokeStyle = '#9f9'
     renderPlayer(
         vec2.lerp(vec2_0, localPlayer0.pos, localPlayer1.pos, localLerp),
-        lerpAngle(localPlayer0.theta, localPlayer1.theta, localLerp)
+        lerpAngle(localPlayer0.theta, localPlayer1.theta, localLerp),
     )
 }
 
@@ -55,13 +55,11 @@ const renderPlayer = (pos: vec2, theta: number): void => {
     ctx.stroke()
 }
 
-export const renderDebugInfos = (clientInfo: DebugInfoSet, serverInfo: DebugInfoSet): void => {
+export const renderTraces = (): void => {
     let html = ''
-    for (const k in clientInfo) {
-        html += `<p><b>[cli]</b> ${k} = ${clientInfo[k].toString()}</p>`
-    }
-    for (const k in serverInfo) {
-        html += `<p><b>[ser]</b> ${k} = ${serverInfo[k].toString()}</p>`
+    const traces = getTraces()
+    for (const k in traces) {
+        html += `<p>${k} = ${traces[k].toString()}</p>`
     }
     debugInfoDiv.innerHTML = html
 }
