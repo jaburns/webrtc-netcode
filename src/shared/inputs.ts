@@ -85,11 +85,6 @@ export class InputsReceiver {
 
         let items = recv.slice(0, amountToTake)
 
-        trace('Amount to take', amountToTake)
-        trace('Acked input seq', this.ackedInputSeq)
-
-        trace(`Inputs buffer size (${this.playerId})`, this.inputsBuffer.length)
-
         while (items.length > 0) {
             const item = items.pop()!
             if (item === 'reset') {
