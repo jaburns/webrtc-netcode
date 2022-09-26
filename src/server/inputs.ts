@@ -1,6 +1,8 @@
 import { addInputsUnits, InputsUnit, newInputsUnit } from '../shared/inputs.js'
 import { textDecoder, log, TICKS_PER_SECOND, trace } from '../shared/utils.js'
 
+const MAX_TARGET_BUFFER_SIZE = 32
+
 export class InputsReceiver {
     private catchUpCombinedInputs: InputsUnit | null = null
     private guessedInputs: number = 0
@@ -8,7 +10,11 @@ export class InputsReceiver {
     private ackedInputSeq: number = 0
     private inputsBuffer: InputsUnit[] = []
     private currentInputs: InputsUnit = newInputsUnit()
-    private readonly targetInputsBufferSize: number = 8
+
+    private targetInputsBufferSize: number = 2
+    private inputBufferSizeHistory: number[] = []
+    private canIncreaseTargetSize: boolean = false
+
     private confirmed: boolean = false
 
     private readonly playerId: string // only needed for logs
@@ -59,8 +65,6 @@ export class InputsReceiver {
                 })
             }
         }
-
-        trace(`Inputs buffer length (${this.playerId})`, this.inputsBuffer.length)
     }
 
     tick (): void {
@@ -76,12 +80,51 @@ export class InputsReceiver {
             addInputsUnits(this.catchUpCombinedInputs!, this.catchUpCombinedInputs!, inputs)
         }
 
+        trace(`Inputs buffer length (${this.playerId})`, this.inputsBuffer.length)
+        trace(`Target inputs buffer length (${this.playerId})`, this.targetInputsBufferSize)
+
+        // Handle dynamic buffer size
+        {
+            this.inputBufferSizeHistory.push(this.inputsBuffer.length)
+            if (this.inputBufferSizeHistory.length > 60) {
+                this.inputBufferSizeHistory.shift()
+
+                if (this.targetInputsBufferSize > 1) {
+                    const halfTargetSize = (this.targetInputsBufferSize / 2) | 0
+                    let foundSmallBuffer = false
+                    for (let i = 0; i < this.inputBufferSizeHistory.length; ++i) {
+                        if (this.inputBufferSizeHistory[i] <= halfTargetSize) {
+                            foundSmallBuffer = true
+                            break
+                        }
+                    }
+                    if (!foundSmallBuffer) {
+                        this.inputBufferSizeHistory.length = 0
+                        this.targetInputsBufferSize /= 2
+                    }
+                }
+            }
+
+            if (
+                this.inputsBuffer.length === 0 &&
+                this.targetInputsBufferSize < MAX_TARGET_BUFFER_SIZE &&
+                this.canIncreaseTargetSize
+            ) {
+                this.targetInputsBufferSize *= 2
+                this.canIncreaseTargetSize = false
+            }
+
+            if (this.inputsBuffer.length >= this.targetInputsBufferSize) {
+                this.canIncreaseTargetSize = true
+            }
+        }
+
         if (this.inputsBuffer.length > 0) {
+            this.currentInputs = this.inputsBuffer.shift()!
+
             if (this.catchUpCombinedInputs !== null) {
-                addInputsUnits(this.currentInputs, this.catchUpCombinedInputs, this.inputsBuffer.shift()!)
+                addInputsUnits(this.currentInputs, this.currentInputs, this.catchUpCombinedInputs)
                 this.catchUpCombinedInputs = null
-            } else {
-                this.currentInputs = this.inputsBuffer.shift()!
             }
 
             if (!this.confirmed) {
