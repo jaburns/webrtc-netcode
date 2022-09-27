@@ -2,6 +2,11 @@ import { vec2 } from 'gl-matrix'
 
 export type InputHistoryItem = InputsUnit | 'reset'
 
+export interface TickInputs {
+    seq: number | null,
+    inputs: InputsUnit,
+}
+
 export interface InputsUnit {
     mouseDelta: [number, number],
     clicking: boolean,

@@ -1,4 +1,4 @@
-import { addInputsUnits, InputsUnit, newInputsUnit } from '../shared/inputs.js'
+import { addInputsUnits, InputsUnit, newInputsUnit, TickInputs } from '../shared/inputs.js'
 import { textDecoder, log, TICKS_PER_SECOND, trace, BufferSizeCounter } from '../shared/utils.js'
 
 export class InputsReceiver {
@@ -6,8 +6,8 @@ export class InputsReceiver {
     private guessedInputs: number = 0
 
     private ackedInputSeq: number = 0
-    private inputsBuffer: InputsUnit[] = []
-    private currentInputs: InputsUnit = newInputsUnit()
+    private inputsBuffer: TickInputs[] = []
+    private currentInputs: TickInputs = { seq: null, inputs: newInputsUnit() }
     private readonly bufferSizeCounter: BufferSizeCounter = new BufferSizeCounter()
 
     private confirmed: boolean = false
@@ -18,7 +18,7 @@ export class InputsReceiver {
         this.playerId = playerId
     }
 
-    getCurrentInputs (): InputsUnit {
+    getCurrentInputs (): TickInputs {
         return this.currentInputs
     }
 
@@ -32,18 +32,19 @@ export class InputsReceiver {
 
     receiveInputsPacket (packet: ArrayBuffer): void {
         const recv: any[] = JSON.parse(textDecoder.decode(packet))
-        const mostRecentSeq: number = recv.shift()
+        let inputsSeq: number = recv.shift()
 
-        trace(`Receiving input seq (${this.playerId})`, mostRecentSeq)
+        trace(`Receiving input seq (${this.playerId})`, inputsSeq)
 
-        if (mostRecentSeq <= this.ackedInputSeq) {
+        if (inputsSeq <= this.ackedInputSeq) {
             return
         }
 
-        const amountToTake = mostRecentSeq - this.ackedInputSeq
-        this.ackedInputSeq = mostRecentSeq
+        const amountToTake = inputsSeq - this.ackedInputSeq
+        this.ackedInputSeq = inputsSeq
 
         const items = recv.slice(0, amountToTake)
+        inputsSeq -= amountToTake - 1
 
         while (items.length > 0) {
             const item = items.pop()!
@@ -55,10 +56,14 @@ export class InputsReceiver {
                 this.confirmed = false
             } else {
                 this.inputsBuffer.push({
-                    clicking: item[0] !== 0,
-                    mouseDelta: [item[1], item[2]],
+                    seq: inputsSeq,
+                    inputs: {
+                        clicking: item[0] !== 0,
+                        mouseDelta: [item[1], item[2]],
+                    }
                 })
             }
+            inputsSeq++;
         }
     }
 
@@ -72,7 +77,7 @@ export class InputsReceiver {
         while (this.inputsBuffer.length > 0 && this.guessedInputs > 0) {
             const inputs = this.inputsBuffer.shift()!
             this.guessedInputs--
-            addInputsUnits(this.catchUpCombinedInputs!, this.catchUpCombinedInputs!, inputs)
+            addInputsUnits(this.catchUpCombinedInputs!, this.catchUpCombinedInputs!, inputs.inputs)
         }
 
         this.bufferSizeCounter.recordBufferSize(this.inputsBuffer.length)
@@ -84,7 +89,7 @@ export class InputsReceiver {
             this.currentInputs = this.inputsBuffer.shift()!
 
             if (this.catchUpCombinedInputs !== null) {
-                addInputsUnits(this.currentInputs, this.currentInputs, this.catchUpCombinedInputs)
+                addInputsUnits(this.currentInputs.inputs, this.currentInputs.inputs, this.catchUpCombinedInputs)
                 this.catchUpCombinedInputs = null
             }
 
@@ -94,10 +99,11 @@ export class InputsReceiver {
             }
         } else if (this.confirmed) {
             this.guessedInputs++
-            this.currentInputs.mouseDelta[0] = 0
-            this.currentInputs.mouseDelta[1] = 0
+            this.currentInputs.inputs.mouseDelta[0] = 0
+            this.currentInputs.inputs.mouseDelta[1] = 0
+            this.currentInputs.seq = null
             if (this.guessedInputs > TICKS_PER_SECOND) {
-                this.currentInputs.clicking = false
+                this.currentInputs.inputs.clicking = false
             }
         }
 

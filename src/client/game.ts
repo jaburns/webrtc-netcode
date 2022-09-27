@@ -76,8 +76,8 @@ export const gameFrame = (): void => {
 const runLocalTick = (): void => {
     if (curLocalClientState === null) return
 
-    const tickInputs = consumeAccumulatedInputs()
-    const maybePacket = inputsSender.addTickInputsAndMaybeMakePacket(tickInputs)
+    const inputs = consumeAccumulatedInputs()
+    const [tickInputs, maybePacket] = inputsSender.addTickInputsAndMaybeMakePacket(inputs)
     if (maybePacket !== null) {
         connection.send(maybePacket)
     }

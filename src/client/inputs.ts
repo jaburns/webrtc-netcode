@@ -1,4 +1,4 @@
-import { InputHistoryItem, InputsUnit, newInputsUnit } from '../shared/inputs.js'
+import { InputHistoryItem, InputsUnit, newInputsUnit, TickInputs } from '../shared/inputs.js'
 import { textEncoder, trace } from '../shared/utils.js'
 
 let curFrameInputs = newInputsUnit()
@@ -54,12 +54,18 @@ export class InputsSender {
     private inputSeqAtHeadOfHistory: number = 0
     private ackedInputSeq: number | null = null
 
-    addTickInputsAndMaybeMakePacket (inputs: InputsUnit): ArrayBuffer | null {
-        this.tickInputsHistory.unshift(inputs)
+    addTickInputsAndMaybeMakePacket (inputs: InputsUnit): [TickInputs, ArrayBuffer | null] {
         this.inputSeqAtHeadOfHistory += 1
 
+        const tickInputs: TickInputs = {
+            seq: this.inputSeqAtHeadOfHistory,
+            inputs
+        }
+
+        this.tickInputsHistory.unshift(inputs)
+
         if (this.inputSeqAtHeadOfHistory % 2 !== 0) {
-            return null
+            return [tickInputs, null]
         }
 
         const send: any[] = [this.inputSeqAtHeadOfHistory]
@@ -81,7 +87,7 @@ export class InputsSender {
         trace('Server-acked input seq', this.ackedInputSeq!)
         trace('Inputs packet size', packet.byteLength)
 
-        return packet
+        return [tickInputs, packet]
     }
 
     ackInputSeq (seq: number): void {
