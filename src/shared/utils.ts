@@ -34,3 +34,51 @@ export const consumeLogs = (): string[] => {
     allLogs = []
     return out
 }
+
+const MAX_TARGET_BUFFER_SIZE = 32
+const STABLE_MEASUREMENTS_BEFORE_DROP = 60
+
+export class BufferSizeCounter {
+    private targetBufferSize: number = 2
+    private bufferSizeHistory: number[] = []
+    private canIncreaseTargetSize: boolean = false
+
+    getTargetBufferSize (): number {
+        return this.targetBufferSize
+    }
+
+    recordBufferSize (length: number): void {
+        this.bufferSizeHistory.push(length)
+        if (this.bufferSizeHistory.length > STABLE_MEASUREMENTS_BEFORE_DROP) {
+            this.bufferSizeHistory.shift()
+
+            if (this.targetBufferSize > 1) {
+                const halfTargetSize = (this.targetBufferSize / 2) | 0
+                let foundSmallBuffer = false
+                for (let i = 0; i < this.bufferSizeHistory.length; ++i) {
+                    if (this.bufferSizeHistory[i] <= halfTargetSize) {
+                        foundSmallBuffer = true
+                        break
+                    }
+                }
+                if (!foundSmallBuffer) {
+                    this.bufferSizeHistory.length = 0
+                    this.targetBufferSize /= 2
+                }
+            }
+        }
+
+        if (
+            length === 0 &&
+            this.targetBufferSize < MAX_TARGET_BUFFER_SIZE &&
+            this.canIncreaseTargetSize
+        ) {
+            this.targetBufferSize *= 2
+            this.canIncreaseTargetSize = false
+        }
+
+        if (length >= this.targetBufferSize) {
+            this.canIncreaseTargetSize = true
+        }
+    }
+}

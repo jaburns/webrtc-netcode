@@ -1,7 +1,5 @@
 import { addInputsUnits, InputsUnit, newInputsUnit } from '../shared/inputs.js'
-import { textDecoder, log, TICKS_PER_SECOND, trace } from '../shared/utils.js'
-
-const MAX_TARGET_BUFFER_SIZE = 32
+import { textDecoder, log, TICKS_PER_SECOND, trace, BufferSizeCounter } from '../shared/utils.js'
 
 export class InputsReceiver {
     private catchUpCombinedInputs: InputsUnit | null = null
@@ -10,10 +8,7 @@ export class InputsReceiver {
     private ackedInputSeq: number = 0
     private inputsBuffer: InputsUnit[] = []
     private currentInputs: InputsUnit = newInputsUnit()
-
-    private targetInputsBufferSize: number = 2
-    private inputBufferSizeHistory: number[] = []
-    private canIncreaseTargetSize: boolean = false
+    private readonly bufferSizeCounter: BufferSizeCounter = new BufferSizeCounter()
 
     private confirmed: boolean = false
 
@@ -28,7 +23,7 @@ export class InputsReceiver {
     }
 
     getClientTimeDilation (): number {
-        return Math.sign(this.inputsBuffer.length - this.targetInputsBufferSize + 1)
+        return Math.sign(this.inputsBuffer.length - this.bufferSizeCounter.getTargetBufferSize() + 1)
     }
 
     getAckedInputSeq (): number {
@@ -80,44 +75,10 @@ export class InputsReceiver {
             addInputsUnits(this.catchUpCombinedInputs!, this.catchUpCombinedInputs!, inputs)
         }
 
+        this.bufferSizeCounter.recordBufferSize(this.inputsBuffer.length)
+
         trace(`Inputs buffer length (${this.playerId})`, this.inputsBuffer.length)
-        trace(`Target inputs buffer length (${this.playerId})`, this.targetInputsBufferSize)
-
-        // Handle dynamic buffer size
-        {
-            this.inputBufferSizeHistory.push(this.inputsBuffer.length)
-            if (this.inputBufferSizeHistory.length > 60) {
-                this.inputBufferSizeHistory.shift()
-
-                if (this.targetInputsBufferSize > 1) {
-                    const halfTargetSize = (this.targetInputsBufferSize / 2) | 0
-                    let foundSmallBuffer = false
-                    for (let i = 0; i < this.inputBufferSizeHistory.length; ++i) {
-                        if (this.inputBufferSizeHistory[i] <= halfTargetSize) {
-                            foundSmallBuffer = true
-                            break
-                        }
-                    }
-                    if (!foundSmallBuffer) {
-                        this.inputBufferSizeHistory.length = 0
-                        this.targetInputsBufferSize /= 2
-                    }
-                }
-            }
-
-            if (
-                this.inputsBuffer.length === 0 &&
-                this.targetInputsBufferSize < MAX_TARGET_BUFFER_SIZE &&
-                this.canIncreaseTargetSize
-            ) {
-                this.targetInputsBufferSize *= 2
-                this.canIncreaseTargetSize = false
-            }
-
-            if (this.inputsBuffer.length >= this.targetInputsBufferSize) {
-                this.canIncreaseTargetSize = true
-            }
-        }
+        trace(`Target inputs buffer length (${this.playerId})`, this.bufferSizeCounter.getTargetBufferSize())
 
         if (this.inputsBuffer.length > 0) {
             this.currentInputs = this.inputsBuffer.shift()!
