@@ -10,6 +10,14 @@ export const TICKS_PER_SECOND = 60
 export const TICK_MILLIS = 1000 / 60
 export const TICKS_PER_SERVER_UPDATE = 2
 
+export type Vec2 = [number, number]
+
+export const lerpVec2 = (out: Vec2, a: Vec2, b: Vec2, t: number): Vec2 => {
+    out[0] = a[0] + t * (b[0] - a[0])
+    out[1] = a[1] + t * (b[1] - a[1])
+    return out
+}
+
 export const lerpAngle = (a: number, b: number, t: number): number => {
     const delta = b - a
     const lerp = delta > Math.PI

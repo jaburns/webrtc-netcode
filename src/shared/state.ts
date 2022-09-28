@@ -1,4 +1,3 @@
-import { vec2 } from 'gl-matrix'
 import { TickInputs } from './inputs.js'
 import { textEncoder, textDecoder, WORLD_WIDTH, PLAYER_RADIUS, WORLD_HEIGHT } from './utils.js'
 
@@ -33,16 +32,18 @@ export const tickPlayer = (self: PlayerState, inputs: TickInputs): void => {
         self.vel[0] += 0.05 * Math.cos(self.theta)
         self.vel[1] += 0.05 * Math.sin(self.theta)
     } else {
-        vec2.scale(self.vel, self.vel, 0.95)
+        self.vel[0] *= 0.95
+        self.vel[1] *= 0.95
     }
 
     self.theta += 0.002 * inputs.inputs.mouseDelta[0]
 
-    if (inputs.seq !== null && inputs.seq % 100 === 0) {
-        self.theta += 0.5
-    }
+    //if (inputs.seq !== null && inputs.seq % 100 === 0) {
+    //    self.theta += 0.5
+    //}
 
-    vec2.add(self.pos, self.pos, self.vel)
+    self.pos[0] += self.vel[0]
+    self.pos[1] += self.vel[1]
 
     if (self.pos[0] < PLAYER_RADIUS) {
         self.pos[0] = PLAYER_RADIUS

@@ -1,8 +1,5 @@
-import { vec2 } from 'gl-matrix'
 import { GameState, PlayerState } from '../shared/state.js'
-import { consumeLogs, getTraces, lerpAngle, PLAYER_RADIUS } from '../shared/utils.js'
-
-const vec2_0: vec2 = vec2.create()
+import { consumeLogs, getTraces, lerpAngle, lerpVec2, PLAYER_RADIUS, Vec2 } from '../shared/utils.js'
 
 let ctx: CanvasRenderingContext2D
 let debugInfoDiv: HTMLDivElement
@@ -25,25 +22,27 @@ export const renderGame = (
 ): void => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
 
+    const vec2: Vec2 = [0, 0]
+
     ctx.strokeStyle = '#f99'
     for (const id in state1.players) {
         if (!(id in state0.players)) continue
         const player0 = state0.players[id]
         const player1 = state1.players[id]
         renderPlayer(
-            vec2.lerp(vec2_0, player0.pos, player1.pos, remoteLerp),
+            lerpVec2(vec2, player0.pos, player1.pos, remoteLerp),
             lerpAngle(player0.theta, player1.theta, remoteLerp),
         )
     }
 
     ctx.strokeStyle = '#9f9'
     renderPlayer(
-        vec2.lerp(vec2_0, localPlayer0.pos, localPlayer1.pos, localLerp),
+        lerpVec2(vec2, localPlayer0.pos, localPlayer1.pos, localLerp),
         lerpAngle(localPlayer0.theta, localPlayer1.theta, localLerp),
     )
 }
 
-const renderPlayer = (pos: vec2, theta: number): void => {
+const renderPlayer = (pos: Vec2, theta: number): void => {
     ctx.beginPath()
     ctx.arc(pos[0], pos[1], PLAYER_RADIUS, 0, 2 * Math.PI)
     ctx.stroke()

@@ -1,5 +1,3 @@
-import { vec2 } from 'gl-matrix'
-
 export type InputHistoryItem = InputsUnit | 'reset'
 
 export interface TickInputs {
@@ -18,7 +16,8 @@ export const newInputsUnit = (): InputsUnit => ({
 })
 
 export const addInputsUnits = (out: InputsUnit, a: InputsUnit, b: InputsUnit): InputsUnit => {
-    vec2.add(out.mouseDelta, a.mouseDelta, b.mouseDelta)
+    out.mouseDelta[0] = a.mouseDelta[0] + b.mouseDelta[0]
+    out.mouseDelta[1] = a.mouseDelta[1] + b.mouseDelta[1]
     out.clicking = a.clicking || b.clicking
     return out
 }
